@@ -3,22 +3,43 @@ import 'package:mcs/screens/login/login.dart';
 import 'package:mcs/screens/principal/menu.dart';
 
 
-void main(){
-  runApp(MCS());
+void main() {
+  runApp(const MCS());
 }
 
-class MCS extends StatelessWidget {
+class MCS extends StatefulWidget {
   const MCS({super.key});
+
+  @override
+  State<MCS> createState() => _MCSState();
+}
+
+class _MCSState extends State<MCS> {
+  ThemeMode _themeMode = ThemeMode.light;
+
+  void _toggleTheme() {
+    setState(() {
+      _themeMode =
+          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      themeMode: _themeMode,
       theme: ThemeData(
+        brightness: Brightness.light,
+        colorSchemeSeed: Colors.greenAccent,
         useMaterial3: false,
-        colorSchemeSeed: Colors.greenAccent
       ),
-      home: Login(),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorSchemeSeed: Colors.greenAccent,
+        useMaterial3: false,
+      ),
+      home: Menu(onToggleTheme: _toggleTheme),
     );
   }
 }

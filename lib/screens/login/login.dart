@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/screens/principal/menu.dart';
 
-class Login extends StatelessWidget{
-  const Login({super.key});
-  static String id='login';
+class Login extends StatelessWidget {
+  final VoidCallback onToggleTheme;
+
+  const Login({super.key, required this.onToggleTheme});
+
 
   @override
   Widget build(BuildContext context) {
@@ -46,12 +48,17 @@ class Login extends StatelessWidget{
                 onChanged: (value) {},
               ),
             ),
-            ElevatedButton(onPressed: ()=>{
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const menu()),
-              )
-            }, child: const Text('Iniciar sesion'))
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Menu(onToggleTheme: onToggleTheme),
+                  ),
+                );
+              },
+              child: const Text('Iniciar sesión'),
+            )
           ],
         )
       )

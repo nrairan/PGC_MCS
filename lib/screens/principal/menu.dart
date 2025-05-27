@@ -9,14 +9,16 @@ import 'package:mcs/screens/materias/ProgramacionII.dart';
 import 'package:mcs/screens/funciones/notificaciones.dart';
 
 
-class menu extends StatefulWidget {
-  const menu({super.key});
+class Menu extends StatefulWidget {
+  final VoidCallback onToggleTheme;
+
+  const Menu({super.key, required this.onToggleTheme});
 
   @override
-  State<menu> createState() => _menuState();
+  State<Menu> createState() => _MenuState();
 }
 
-class _menuState extends State<menu> {
+class _MenuState extends State<Menu> {
   int _currentIndex = 0;
 
   Widget _getScreenContent() {
@@ -35,8 +37,12 @@ class _menuState extends State<menu> {
           child: Icon(Icons.alarm, size: 70, color: Colors.grey),
         );
       case 3:
-        return const Center(
-          child: Icon(Icons.settings, size: 70, color: Colors.grey),
+        return Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.dark_mode),
+            label: const Text('Cambiar tema'),
+            onPressed: widget.onToggleTheme,
+          ),
         );
       default:
         return const Center(
@@ -124,16 +130,18 @@ class _menuState extends State<menu> {
       ),
 
       body: _getScreenContent(),
-
       bottomNavigationBar: GNav(
-        backgroundColor: Colors.white,
-        tabBackgroundColor: Colors.grey.shade300,
+        backgroundColor: Theme.of(context).colorScheme.surface, // fondo de la barra
+        tabBackgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        color: Theme.of(context).colorScheme.onSurface, // íconos inactivos
+        activeColor: Theme.of(context).colorScheme.primary,    // íconos activos
         selectedIndex: _currentIndex,
         onTabChange: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
+        
         tabs: const [
           GButton(icon: Icons.home, text: 'Inicio'),
           GButton(icon: Icons.chat, text: 'Chat'),

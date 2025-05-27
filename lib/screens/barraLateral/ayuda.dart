@@ -16,16 +16,25 @@ class Ayuda extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
         children: [
-            Icon(
-              Icons.sentiment_dissatisfied_outlined,
-              size: 60,
-              color: Colors.grey,
+            ListTile(
+              title: const Text('WhatsApp:'),
+              leading: const Icon(Icons.textsms_outlined),
             ),
-            SizedBox(height: 10), // Espacio entre icono y texto
-            Text(
-              'Lo sentimos, no pudimos ayudarte.\nEsta opcion no se encuentra actualmente',
-              style: TextStyle(fontSize: 18)
+
+            ListTile(
+              title: const Text('Telefono:'),
+              leading: const Icon(Icons.contact_phone_outlined),
             ),
+
+            ListTile(
+              title: const Text('Facebook'),
+              leading: Icon(Icons.facebook),
+            ),
+
+            ListTile(
+              title: const Text('Correo'),
+              leading: const Icon(Icons.mail),
+            )
           ],
       ),
     ),
