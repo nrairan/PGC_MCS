@@ -17,12 +17,12 @@ class Ayuda extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
         children: [
             ListTile(
-              title: const Text('WhatsApp:'),
+              title: const Text('WhatsApp: +57 300 1345212'),
               leading: const Icon(Icons.textsms_outlined),
             ),
 
             ListTile(
-              title: const Text('Telefono:'),
+              title: const Text('Telefono: 300 1345212'),
               leading: const Icon(Icons.contact_phone_outlined),
             ),
 
