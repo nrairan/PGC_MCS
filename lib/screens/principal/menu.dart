@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:mcs/screens/materias/ProgramacionII.dart';
 import 'package:mcs/screens/funciones/notificaciones.dart';
+import 'package:mcs/screens/principal/alarmas.dart';
 
 
 class Menu extends StatefulWidget {
@@ -33,9 +34,7 @@ class _MenuState extends State<Menu> {
           child: Icon(Icons.chat, size: 70, color: Colors.grey),
         );
       case 2:
-        return const Center(
-          child: Icon(Icons.alarm, size: 70, color: Colors.grey),
-        );
+        return  alarmas(); // ← Tu pantalla de alarmas real
       case 3:
         return Center(
           child: ElevatedButton.icon(
@@ -145,7 +144,7 @@ class _MenuState extends State<Menu> {
         tabs: const [
           GButton(icon: Icons.home, text: 'Inicio'),
           GButton(icon: Icons.chat, text: 'Chat'),
-          GButton(icon: Icons.alarm, text: 'Alarmas'),
+          GButton(icon: Icons.alarm, text: 'Alarmas',),
           GButton(icon: Icons.settings, text: 'Opciones'),
         ],
       ),
