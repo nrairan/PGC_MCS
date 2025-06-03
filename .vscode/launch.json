@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mcs",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/frontend/principal/main.dart"
+    },
+    {
+      "name": "mcs (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/frontend/principal/main.dart"
+    },
+    {
+      "name": "mcs (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/frontend/principal/main.dart"
+    }
+  ]
+}

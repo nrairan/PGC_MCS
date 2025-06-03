@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:mcs/frontend/screens/barraLateral/ayuda.dart';
-import 'package:mcs/frontend/screens/materias/EcDiferencial.dart';
+import 'package:mcs/frontend/barraLateral/ayuda.dart';
+import 'package:mcs/frontend/materias/EcDiferencial.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 
-import 'package:mcs/frontend/screens/materias/ProgramacionII.dart';
-import 'package:mcs/frontend/screens/funciones/notificaciones.dart';
-import 'package:mcs/frontend/screens/principal/alarmas.dart';
+import 'package:mcs/frontend/materias/ProgramacionII.dart';
+import 'package:mcs/frontend/funciones/notificaciones.dart';
+import 'package:mcs/frontend/principal/alarmas.dart';
 
 
 class Menu extends StatefulWidget {
