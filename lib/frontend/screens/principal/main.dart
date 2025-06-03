@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/screens/login/login.dart';
-import 'package:mcs/screens/principal/menu.dart';
+import 'package:mcs/frontend/screens/login/login.dart';
+import 'package:mcs/frontend/screens/principal/menu.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const MCS());
 }
+
 
 class MCS extends StatefulWidget {
   const MCS({super.key});

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:mcs/screens/barraLateral/ayuda.dart';
-import 'package:mcs/screens/materias/EcDiferencial.dart';
+import 'package:mcs/frontend/screens/barraLateral/ayuda.dart';
+import 'package:mcs/frontend/screens/materias/EcDiferencial.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 
-import 'package:mcs/screens/materias/ProgramacionII.dart';
-import 'package:mcs/screens/funciones/notificaciones.dart';
-import 'package:mcs/screens/principal/alarmas.dart';
+import 'package:mcs/frontend/screens/materias/ProgramacionII.dart';
+import 'package:mcs/frontend/screens/funciones/notificaciones.dart';
+import 'package:mcs/frontend/screens/principal/alarmas.dart';
 
 
 class Menu extends StatefulWidget {
@@ -34,7 +34,7 @@ class _MenuState extends State<Menu> {
           child: Icon(Icons.chat, size: 70, color: Colors.grey),
         );
       case 2:
-        return  alarmas(); // ← Tu pantalla de alarmas real
+        return  Alarmas(); // ← Tu pantalla de alarmas real
       case 3:
         return Center(
           child: ElevatedButton.icon(
