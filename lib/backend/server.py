@@ -30,3 +30,6 @@ try:
 except Exception as e:
     print("❌ Error al conectar con SQL Server:", e)
     exit(1)
+
+if __name__ == '_main_':
+    app.run(host='0.0.0', port=5000, debug=True)

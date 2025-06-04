@@ -15,7 +15,8 @@ class Alarmas extends StatelessWidget {
     final descripcion = descripcionController.text;
 
     final response = await http.post(
-      Uri.parse('http://192.168.101.9:5000/add_alarma'),
+      Uri.parse('http://127.0.0.1:5000/add_alarma'),
+
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'nombre': nombre,
