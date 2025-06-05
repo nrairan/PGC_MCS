@@ -39,7 +39,7 @@ class _MenuState extends State<Menu> {
         return Center(
           child: ElevatedButton.icon(
             icon: const Icon(Icons.dark_mode),
-            label: const Text('Cambiar tema'),
+            label: const Text('Cambiar tem'),
             onPressed: widget.onToggleTheme,
           ),
         );
