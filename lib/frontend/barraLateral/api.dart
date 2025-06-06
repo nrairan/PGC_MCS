@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mcs/frontend/formularios/formulario_usuario.dart';
 
 class ApiPage extends StatelessWidget {
   const ApiPage({super.key});
@@ -15,9 +16,9 @@ class ApiPage extends StatelessWidget {
               icon: const Icon(Icons.add),
               label: const Text('Agregar en la API'),
               onPressed: () {
-                // Aquí puedes llamar a tu lógica para agregar datos a la API
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Agregar presionado')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const UsuarioForm()),
                 );
               },
             ),
