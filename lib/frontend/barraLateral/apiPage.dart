@@ -17,33 +17,33 @@ class ApiPage extends StatelessWidget {
               leading: const Icon(Icons.person),
               title: const Text('Agregar Docente'),
               onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => FormularioDocente()),
-                );
+                // Navigator.pop(context);
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(builder: (_) => FormularioDocente()),
+                // );
               },
             ),
             ListTile(
               leading: const Icon(Icons.school),
               title: const Text('Agregar Estudiante'),
               onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => FormularioEstudiante()),
-                );
+                // Navigator.pop(context);
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(builder: (_) => FormularioEstudiante()),
+                // );
               },
             ),
             ListTile(
               leading: const Icon(Icons.book),
               title: const Text('Agregar Asignatura'),
               onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => FormularioAsignatura()),
-                );
+                // Navigator.pop(context);
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(builder: (_) => FormularioAsignatura()),
+                // );
               },
             ),
           ],
