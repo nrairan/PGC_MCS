@@ -6,7 +6,7 @@ class HorarioService {
   final String baseUrl;
 
   // Constructor mejorado con valor por defecto
-  HorarioService([this.baseUrl = 'http://10.157.17.53:8000/api/']);
+  HorarioService([this.baseUrl = 'http://127.0.0.1:8000/api/']);
 
   Future<List<dynamic>> getHorarios() async {
     try {

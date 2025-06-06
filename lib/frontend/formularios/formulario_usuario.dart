@@ -12,41 +12,36 @@ class UsuarioForm extends StatefulWidget {
 class _UsuarioFormState extends State<UsuarioForm> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController usernameController = TextEditingController();
-  final TextEditingController nombreController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  String _rol = 'CO'; // Valor por defecto
 
-  String selectedRol = 'CO';
+  final String apiUrl =
+      'http://127.0.0.1:8000/api/usuarios/'; // Asegúrate de que la URL coincida con tu endpoint real
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      final Map<String, dynamic> usuarioData = {
-        'username': usernameController.text,
-        'first_name': nombreController.text,
-        'email': emailController.text,
-        'password': passwordController.text,
-        'rol': selectedRol,
-      };
-
-      const url =
-          'http://127.0.0.1:8000/api/usuarios/'; // Ajusta según tu endpoint
-
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(usuarioData),
+        body: jsonEncode({
+          'username': _usernameController.text,
+          'email': _emailController.text,
+          'password': _passwordController.text,
+          'rol': _rol,
+        }),
       );
 
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Usuario creado exitosamente')),
         );
-        Navigator.pop(context); // Opcional: regresar atrás
+        _formKey.currentState!.reset();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al crear usuario: ${response.body}')),
+        );
       }
     }
   }
@@ -54,7 +49,7 @@ class _UsuarioFormState extends State<UsuarioForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Agregar Usuario')),
+      appBar: AppBar(title: const Text('Crear Usuario')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -62,48 +57,53 @@ class _UsuarioFormState extends State<UsuarioForm> {
           child: ListView(
             children: [
               TextFormField(
-                controller: usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
+                controller: _usernameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre de usuario',
+                ),
                 validator:
-                    (value) => value!.isEmpty ? 'Ingrese un username' : null,
+                    (value) =>
+                        value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
               TextFormField(
-                controller: nombreController,
-                decoration: const InputDecoration(labelText: 'Nombre'),
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Correo electrónico',
+                ),
                 validator:
-                    (value) => value!.isEmpty ? 'Ingrese el nombre' : null,
+                    (value) =>
+                        value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
               TextFormField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator:
-                    (value) => value!.isEmpty ? 'Ingrese un email' : null,
-              ),
-              TextFormField(
-                controller: passwordController,
+                controller: _passwordController,
                 decoration: const InputDecoration(labelText: 'Contraseña'),
                 obscureText: true,
                 validator:
-                    (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                    (value) =>
+                        value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
               DropdownButtonFormField<String>(
-                value: selectedRol,
+                value: _rol,
                 decoration: const InputDecoration(labelText: 'Rol'),
                 items: const [
                   DropdownMenuItem(value: 'CO', child: Text('Coordinador')),
-                  DropdownMenuItem(value: 'GC', child: Text('Gestor')),
+                  DropdownMenuItem(
+                    value: 'GC',
+                    child: Text('Gestor del Conocimiento'),
+                  ),
                   DropdownMenuItem(value: 'ES', child: Text('Estudiante')),
                 ],
                 onChanged: (value) {
                   setState(() {
-                    selectedRol = value!;
+                    _rol = value!;
                   });
                 },
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
+              ElevatedButton.icon(
+                icon: const Icon(Icons.save),
+                label: const Text('Guardar Usuario'),
                 onPressed: _submitForm,
-                child: const Text('Guardar'),
               ),
             ],
           ),
