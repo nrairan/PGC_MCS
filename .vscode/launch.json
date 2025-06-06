@@ -21,5 +21,6 @@
       "flutterMode": "release",
       "program": "lib/frontend/principal/main.dart"
     }
+    
   ]
 }

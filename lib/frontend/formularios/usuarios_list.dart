@@ -15,7 +15,7 @@ class _UsuariosListPageState extends State<UsuariosListPage> {
 
   Future<void> fetchUsuarios() async {
     final response = await http.get(
-      Uri.parse('http://10.157.17.53:8000/api/usuarios/'),
+      Uri.parse('http://127.0.0.1:8000/api/usuarios/'),
       headers: {'Content-Type': 'application/json'},
     );
 
