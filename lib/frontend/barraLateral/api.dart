@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/frontend/formularios/formulario_usuario.dart';
+import 'package:mcs/frontend/formularios/usuarios_list.dart';
 
 class ApiPage extends StatelessWidget {
   const ApiPage({super.key});
@@ -27,9 +28,11 @@ class ApiPage extends StatelessWidget {
               icon: const Icon(Icons.list),
               label: const Text('Ver contenido de la API'),
               onPressed: () {
-                // Aquí puedes navegar o mostrar datos de la API
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Ver contenido presionado')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UsuariosListPage(),
+                  ),
                 );
               },
             ),
