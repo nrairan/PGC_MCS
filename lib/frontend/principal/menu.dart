@@ -8,6 +8,7 @@ import 'package:mcs/frontend/barraLateral/ayuda.dart';
 import 'package:mcs/frontend/barraLateral/apiHorarioPage.dart';
 import 'package:mcs/frontend/funciones/notificaciones.dart';
 import 'package:mcs/frontend/principal/alarmas.dart';
+import 'package:mcs/frontend/barraLateral/api.dart';
 
 import 'package:mcs/backend/api_horario.dart';
 
@@ -149,6 +150,16 @@ class _MenuState extends State<Menu> {
                           service: HorarioService(),
                         ), // Pasa el servicio como parámetro
                   ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text('API'),
+              leading: const Icon(Icons.phone),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ApiPage()),
                 );
               },
             ),
