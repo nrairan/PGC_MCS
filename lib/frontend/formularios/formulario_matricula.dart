@@ -12,36 +12,64 @@ class MatriculaForm extends StatefulWidget {
 class _MatriculaFormState extends State<MatriculaForm> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _nombreController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  String? _semestre;
+  int? _estudianteSeleccionado;
+  int? _asignaturaSeleccionada;
 
-  String _selectedRol = 'ES'; // Por defecto estudiante
+  List<dynamic> _estudiantes = [];
+  List<dynamic> _asignaturas = [];
+
+  final String apiUrl = 'http://127.0.0.1:8000/api/matricula/';
+  final String estudiantesUrl = 'http://127.0.0.1:8000/api/usuarios/?rol=ES';
+  final String asignaturasUrl = 'http://127.0.0.1:8000/api/asignaturas/';
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstudiantes();
+    _cargarAsignaturas();
+  }
+
+  Future<void> _cargarEstudiantes() async {
+    final response = await http.get(Uri.parse(estudiantesUrl));
+    if (response.statusCode == 200) {
+      setState(() {
+        _estudiantes = json.decode(response.body);
+      });
+    }
+  }
+
+  Future<void> _cargarAsignaturas() async {
+    final response = await http.get(Uri.parse(asignaturasUrl));
+    if (response.statusCode == 200) {
+      setState(() {
+        _asignaturas = json.decode(response.body);
+      });
+    }
+  }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      final Map<String, dynamic> usuarioData = {
-        'username': _usernameController.text,
-        'first_name': _nombreController.text,
-        'email': _emailController.text,
-        'password': _passwordController.text,
-        'rol': _selectedRol,
-      };
-
-      const url = 'http://<TU_IP>:8000/api/usuarios/'; // Reemplaza <TU_IP>
-
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(usuarioData),
+        body: jsonEncode({
+          'estudiante': _estudianteSeleccionado,
+          'asignatura': _asignaturaSeleccionada,
+          'semestre': _semestre,
+        }),
       );
 
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuario registrado exitosamente')),
+          const SnackBar(content: Text('Matrícula registrada exitosamente')),
         );
-        Navigator.pop(context);
+        _formKey.currentState!.reset();
+        setState(() {
+          _estudianteSeleccionado = null;
+          _asignaturaSeleccionada = null;
+          _semestre = null;
+        });
       } else {
         ScaffoldMessenger.of(
           context,
@@ -53,82 +81,67 @@ class _MatriculaFormState extends State<MatriculaForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrar Usuario')),
+      appBar: AppBar(title: const Text('Registrar Matrícula')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de usuario',
-                ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Ingrese un usuario'
-                            : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _nombreController,
-                decoration: const InputDecoration(labelText: 'Nombre completo'),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Ingrese el nombre'
-                            : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo institucional',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty)
-                    return 'Ingrese el correo';
-                  if (!value.contains('@')) return 'Correo inválido';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-                validator:
-                    (value) =>
-                        value != null && value.length >= 6
-                            ? null
-                            : 'Mínimo 6 caracteres',
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _selectedRol,
-                decoration: const InputDecoration(labelText: 'Rol'),
-                items: const [
-                  DropdownMenuItem(value: 'CO', child: Text('Coordinador')),
-                  DropdownMenuItem(
-                    value: 'GC',
-                    child: Text('Gestor de calidad'),
-                  ),
-                  DropdownMenuItem(value: 'ES', child: Text('Estudiante')),
-                ],
+              DropdownButtonFormField<int>(
+                decoration: const InputDecoration(labelText: 'Estudiante'),
+                value: _estudianteSeleccionado,
+                items:
+                    _estudiantes.map<DropdownMenuItem<int>>((user) {
+                      return DropdownMenuItem<int>(
+                        value: user['id'],
+                        child: Text(user['username']),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _selectedRol = value!;
+                    _estudianteSeleccionado = value;
                   });
                 },
                 validator:
-                    (value) => value == null ? 'Seleccione un rol' : null,
+                    (value) =>
+                        value == null ? 'Selecciona un estudiante' : null,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
+              DropdownButtonFormField<int>(
+                decoration: const InputDecoration(labelText: 'Asignatura'),
+                value: _asignaturaSeleccionada,
+                items:
+                    _asignaturas.map<DropdownMenuItem<int>>((asignatura) {
+                      return DropdownMenuItem<int>(
+                        value: asignatura['id'],
+                        child: Text(
+                          "${asignatura['codigo']} - ${asignatura['nombre']}",
+                        ),
+                      );
+                    }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _asignaturaSeleccionada = value;
+                  });
+                },
+                validator:
+                    (value) =>
+                        value == null ? 'Selecciona una asignatura' : null,
+              ),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Semestre'),
+                onChanged: (value) {
+                  _semestre = value;
+                },
+                validator:
+                    (value) =>
+                        value!.isEmpty ? 'Este campo es obligatorio' : null,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.save),
+                label: const Text('Registrar Matrícula'),
                 onPressed: _submitForm,
-                child: const Text('Registrar'),
               ),
             ],
           ),

@@ -14,8 +14,11 @@ class _ProgramaFormState extends State<ProgramaForm> {
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _codigoController = TextEditingController();
 
-  String? _selectedCoordinadorId;
+  int? _selectedCoordinadorId;
   List<Map<String, dynamic>> _coordinadores = [];
+
+  final String apiUrl = 'http://127.0.0.1:8000/api/programa/';
+  final String coordinadoresUrl = 'http://127.0.0.1:8000/api/usuarios/?rol=CO';
 
   @override
   void initState() {
@@ -24,27 +27,32 @@ class _ProgramaFormState extends State<ProgramaForm> {
   }
 
   Future<void> _fetchCoordinadores() async {
-    final response = await http.get(
-      Uri.parse('http://<TU_IP>:8000/api/usuarios/?rol=CO'),
-    );
+    try {
+      final response = await http.get(Uri.parse(coordinadoresUrl));
 
-    if (response.statusCode == 200) {
-      final List data = json.decode(response.body);
-      setState(() {
-        _coordinadores = data.cast<Map<String, dynamic>>();
-      });
-    } else {
-      // Manejar error
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error cargando coordinadores')),
-      );
+      if (response.statusCode == 200) {
+        final List data = json.decode(response.body);
+        setState(() {
+          _coordinadores = data.cast<Map<String, dynamic>>();
+        });
+      } else {
+        _showMessage('Error cargando coordinadores');
+      }
+    } catch (e) {
+      _showMessage('Error de conexión');
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final response = await http.post(
-        Uri.parse('http://<TU_IP>:8000/api/programas/'),
+        Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'nombre': _nombreController.text,
@@ -54,14 +62,14 @@ class _ProgramaFormState extends State<ProgramaForm> {
       );
 
       if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Programa registrado exitosamente')),
-        );
+        _showMessage('Programa registrado exitosamente');
+        _formKey.currentState!.reset();
+        setState(() {
+          _selectedCoordinadorId = null;
+        });
         Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
+        _showMessage('Error: ${response.body}');
       }
     }
   }
@@ -74,7 +82,7 @@ class _ProgramaFormState extends State<ProgramaForm> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
               TextFormField(
                 controller: _nombreController,
@@ -100,19 +108,17 @@ class _ProgramaFormState extends State<ProgramaForm> {
                             : null,
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
+              DropdownButtonFormField<int>(
                 value: _selectedCoordinadorId,
                 items:
-                    _coordinadores
-                        .map(
-                          (user) => DropdownMenuItem(
-                            value: user['id'].toString(),
-                            child: Text(
-                              user['first_name'] + ' ' + user['last_name'],
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    _coordinadores.map((user) {
+                      return DropdownMenuItem<int>(
+                        value: user['id'],
+                        child: Text(
+                          '${user['first_name']} ${user['last_name']}',
+                        ),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   setState(() {
                     _selectedCoordinadorId = value;
@@ -124,9 +130,10 @@ class _ProgramaFormState extends State<ProgramaForm> {
                         value == null ? 'Seleccione un coordinador' : null,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: _submitForm,
-                child: const Text('Registrar'),
+                icon: const Icon(Icons.save),
+                label: const Text('Registrar'),
               ),
             ],
           ),

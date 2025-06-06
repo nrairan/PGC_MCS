@@ -12,13 +12,44 @@ class AsignaturaForm extends StatefulWidget {
 class _AsignaturaFormState extends State<AsignaturaForm> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  String _rol = 'CO'; // Valor por defecto
+  final TextEditingController _codigoController = TextEditingController();
+  final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _creditosController = TextEditingController();
 
-  final String apiUrl =
-      'http://127.0.0.1:8000/api/usuarios/'; // Asegúrate de que la URL coincida con tu endpoint real
+  int? _programaSeleccionado;
+  List<int> _gestoresSeleccionados = [];
+
+  List<dynamic> _programas = [];
+  List<dynamic> _gestores = [];
+
+  final String apiUrl = 'http://127.0.0.1:8000/api/asignaturas/';
+  final String programasUrl = 'http://127.0.0.1:8000/api/programa/';
+  final String gestoresUrl = 'http://127.0.0.1:8000/api/usuarios/?rol=GC';
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarProgramas();
+    _cargarGestores();
+  }
+
+  Future<void> _cargarProgramas() async {
+    final response = await http.get(Uri.parse(programasUrl));
+    if (response.statusCode == 200) {
+      setState(() {
+        _programas = json.decode(response.body);
+      });
+    }
+  }
+
+  Future<void> _cargarGestores() async {
+    final response = await http.get(Uri.parse(gestoresUrl));
+    if (response.statusCode == 200) {
+      setState(() {
+        _gestores = json.decode(response.body);
+      });
+    }
+  }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
@@ -26,22 +57,27 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'username': _usernameController.text,
-          'email': _emailController.text,
-          'password': _passwordController.text,
-          'rol': _rol,
+          'codigo': _codigoController.text,
+          'nombre': _nombreController.text,
+          'programa': _programaSeleccionado,
+          'gestores': _gestoresSeleccionados,
+          'creditos': int.parse(_creditosController.text),
         }),
       );
 
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuario creado exitosamente')),
+          const SnackBar(content: Text('Asignatura creada exitosamente')),
         );
         _formKey.currentState!.reset();
+        setState(() {
+          _programaSeleccionado = null;
+          _gestoresSeleccionados = [];
+        });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al crear usuario: ${response.body}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
       }
     }
   }
@@ -49,7 +85,7 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear Usuario')),
+      appBar: AppBar(title: const Text('Crear Asignatura')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -57,52 +93,66 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
           child: ListView(
             children: [
               TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de usuario',
-                ),
+                controller: _codigoController,
+                decoration: const InputDecoration(labelText: 'Código'),
                 validator:
                     (value) =>
                         value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
               TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
-                ),
+                controller: _nombreController,
+                decoration: const InputDecoration(labelText: 'Nombre'),
                 validator:
                     (value) =>
                         value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
               TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
+                controller: _creditosController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Créditos'),
                 validator:
                     (value) =>
                         value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
-              DropdownButtonFormField<String>(
-                value: _rol,
-                decoration: const InputDecoration(labelText: 'Rol'),
-                items: const [
-                  DropdownMenuItem(value: 'CO', child: Text('Coordinador')),
-                  DropdownMenuItem(
-                    value: 'GC',
-                    child: Text('Gestor del Conocimiento'),
-                  ),
-                  DropdownMenuItem(value: 'ES', child: Text('Estudiante')),
-                ],
+              DropdownButtonFormField<int>(
+                decoration: const InputDecoration(labelText: 'Programa'),
+                value: _programaSeleccionado,
+                items:
+                    _programas.map<DropdownMenuItem<int>>((programa) {
+                      return DropdownMenuItem<int>(
+                        value: programa['id'],
+                        child: Text(programa['nombre']),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _rol = value!;
+                    _programaSeleccionado = value;
                   });
                 },
+                validator:
+                    (value) => value == null ? 'Selecciona un programa' : null,
               ),
+              const SizedBox(height: 10),
+              const Text('Gestores (puedes seleccionar varios)'),
+              ..._gestores.map((gestor) {
+                return CheckboxListTile(
+                  value: _gestoresSeleccionados.contains(gestor['id']),
+                  title: Text(gestor['username']),
+                  onChanged: (bool? selected) {
+                    setState(() {
+                      if (selected == true) {
+                        _gestoresSeleccionados.add(gestor['id']);
+                      } else {
+                        _gestoresSeleccionados.remove(gestor['id']);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 icon: const Icon(Icons.save),
-                label: const Text('Guardar Usuario'),
+                label: const Text('Guardar Asignatura'),
                 onPressed: _submitForm,
               ),
             ],
