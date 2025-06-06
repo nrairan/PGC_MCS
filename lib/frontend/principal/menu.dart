@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:mcs/frontend/barraLateral/ayuda.dart';
-import 'package:mcs/frontend/materias/EcDiferencial.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-
+import 'package:mcs/frontend/materias/EcDiferencial.dart';
 import 'package:mcs/frontend/materias/ProgramacionII.dart';
+import 'package:mcs/frontend/barraLateral/ayuda.dart';
+import 'package:mcs/frontend/barraLateral/apiHorarioPage.dart';
 import 'package:mcs/frontend/funciones/notificaciones.dart';
 import 'package:mcs/frontend/principal/alarmas.dart';
 
+import 'package:mcs/backend/api_horario.dart';
+
+// Agrega esto al inicio de tu menu.dart
+const String baseUrl =
+    'http://127.0.0.1:8000/api/'; // Ajusta la URL según tu necesidad
 
 class Menu extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -23,7 +28,6 @@ class _MenuState extends State<Menu> {
   int _currentIndex = 0;
 
   Widget _getScreenContent() {
-    
     switch (_currentIndex) {
       case 0:
         return const Center(
@@ -34,7 +38,7 @@ class _MenuState extends State<Menu> {
           child: Icon(Icons.chat, size: 70, color: Colors.grey),
         );
       case 2:
-        return  Alarmas(); // ← Tu pantalla de alarmas real
+        return Alarmas(); // ← Tu pantalla de alarmas real
       case 3:
         return Center(
           child: ElevatedButton.icon(
@@ -44,9 +48,7 @@ class _MenuState extends State<Menu> {
           ),
         );
       default:
-        return const Center(
-          child: Icon(Icons.help_outline, size: 70),
-        );
+        return const Center(child: Icon(Icons.help_outline, size: 70));
     }
   }
 
@@ -83,8 +85,10 @@ class _MenuState extends State<Menu> {
               title: const Text('SIII-Ecuaciones diferenciales'),
               leading: const Icon(Icons.calculate),
               onTap: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => EcDiferencial()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => EcDiferencial()),
+                );
               },
             ),
 
@@ -92,8 +96,10 @@ class _MenuState extends State<Menu> {
               title: const Text('SII-Programación'),
               leading: const Icon(Icons.code),
               onTap: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => ProgramacionII()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ProgramacionII()),
+                );
               },
             ),
 
@@ -104,12 +110,15 @@ class _MenuState extends State<Menu> {
                 const url =
                     'https://pregrado.ucundinamarca.edu.co/login/index.php';
                 if (await canLaunchUrl(Uri.parse(url))) {
-                  await launchUrl(Uri.parse(url),
-                      mode: LaunchMode.externalApplication);
+                  await launchUrl(
+                    Uri.parse(url),
+                    mode: LaunchMode.externalApplication,
+                  );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('No se pudo abrir la página web')),
+                      content: Text('No se pudo abrir la página web'),
+                    ),
                   );
                 }
               },
@@ -121,7 +130,26 @@ class _MenuState extends State<Menu> {
               leading: const Icon(Icons.help),
               onTap: () {
                 Navigator.push(
-                    context, MaterialPageRoute(builder: (context) => Ayuda()));
+                  context,
+                  MaterialPageRoute(builder: (context) => Ayuda()),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text('Api_horario'),
+              leading: const Icon(
+                Icons.help,
+              ), // Corregido: Icons.help en lugar de icons.help
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => ApiHorarioPage(
+                          service: HorarioService(),
+                        ), // Pasa el servicio como parámetro
+                  ),
+                );
               },
             ),
           ],
@@ -130,21 +158,22 @@ class _MenuState extends State<Menu> {
 
       body: _getScreenContent(),
       bottomNavigationBar: GNav(
-        backgroundColor: Theme.of(context).colorScheme.surface, // fondo de la barra
+        backgroundColor:
+            Theme.of(context).colorScheme.surface, // fondo de la barra
         tabBackgroundColor: Theme.of(context).colorScheme.primaryContainer,
         color: Theme.of(context).colorScheme.onSurface, // íconos inactivos
-        activeColor: Theme.of(context).colorScheme.primary,    // íconos activos
+        activeColor: Theme.of(context).colorScheme.primary, // íconos activos
         selectedIndex: _currentIndex,
         onTabChange: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        
+
         tabs: const [
           GButton(icon: Icons.home, text: 'Inicio'),
           GButton(icon: Icons.chat, text: 'Chat'),
-          GButton(icon: Icons.alarm, text: 'Alarmas',),
+          GButton(icon: Icons.alarm, text: 'Alarmas'),
           GButton(icon: Icons.settings, text: 'Opciones'),
         ],
       ),
@@ -152,23 +181,18 @@ class _MenuState extends State<Menu> {
   }
 }
 
-
 class CustomButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
 
-  const CustomButton({
-    super.key, 
-    required this.icon,
-    this.onPressed
-  });
+  const CustomButton({super.key, required this.icon, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton(
       elevation: 5,
       shape: const StadiumBorder(),
-      onPressed: () => onPressed! (),
+      onPressed: () => onPressed!(),
       child: Icon(icon),
     );
   }

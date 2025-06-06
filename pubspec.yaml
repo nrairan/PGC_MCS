@@ -33,6 +33,7 @@ dependencies:
   url_launcher: ^6.2.5
   flutter_dotenv: ^5.2.1
   http: ^1.4.0
+  uri: ^1.0.0
 
 
 
