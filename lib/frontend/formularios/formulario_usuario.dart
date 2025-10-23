@@ -17,8 +17,7 @@ class _UsuarioFormState extends State<UsuarioForm> {
   final TextEditingController _passwordController = TextEditingController();
   String _rol = 'CO'; // Valor por defecto
 
-  final String apiUrl =
-      'http://127.0.0.1:8000/api/usuarios/'; // Asegúrate de que la URL coincida con tu endpoint real
+  final String apiUrl = 'http://127.0.0.1:8000/api/usuarios/';
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {

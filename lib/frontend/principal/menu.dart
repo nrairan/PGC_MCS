@@ -136,23 +136,7 @@ class _MenuState extends State<Menu> {
                 );
               },
             ),
-            ListTile(
-              title: const Text('Api_horario'),
-              leading: const Icon(
-                Icons.help,
-              ), // Corregido: Icons.help en lugar de icons.help
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) => ApiHorarioPage(
-                          service: HorarioService(),
-                        ), // Pasa el servicio como parámetro
-                  ),
-                );
-              },
-            ),
+
             ListTile(
               title: const Text('API'),
               leading: const Icon(Icons.phone),
