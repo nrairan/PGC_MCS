@@ -96,7 +96,7 @@ class _ApiPageState extends State<ApiPage> {
             const Spacer(),
             // --- Campo de búsqueda ---
             SizedBox(
-              width: 400,
+              width: 600,
               height: 40,
               child: TextField(
                 controller: _searchController,
@@ -134,6 +134,15 @@ class _ApiPageState extends State<ApiPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Padding(
+              padding: const EdgeInsets.all(70.0),
+              child: Image.asset(
+                'assets/images/banner-ubate.png',
+                height: 300,
+                fit: BoxFit.contain,
+              ),
+            ),
+
             DropdownButtonFormField<String>(
               value: _selectedOption,
               hint: const Text('Selecciona para registrar'),
