@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
+
 class ProgramaForm extends StatefulWidget {
   const ProgramaForm({super.key});
 
@@ -74,70 +76,133 @@ class _ProgramaFormState extends State<ProgramaForm> {
     }
   }
 
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrar Programa')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nombreController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del programa',
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                'Registrar Programa',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ),
+
+            const Spacer(),
+            // --- Campo de búsqueda ---
+            SizedBox(
+              width: 450,
+              height: 40,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar clases, profesores o salones',
+                  prefixIcon: const Icon(Icons.search),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Campo obligatorio'
-                            : null,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _codigoController,
-                decoration: const InputDecoration(
-                  labelText: 'Código del programa',
-                ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Campo obligatorio'
-                            : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                value: _selectedCoordinadorId,
-                items:
-                    _coordinadores.map((user) {
-                      return DropdownMenuItem<int>(
-                        value: user['id'],
-                        child: Text(
-                          '${user['first_name']} ${user['last_name']}',
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCoordinadorId = value;
-                  });
-                },
-                decoration: const InputDecoration(labelText: 'Coordinador'),
-                validator:
-                    (value) =>
-                        value == null ? 'Seleccione un coordinador' : null,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _submitForm,
-                icon: const Icon(Icons.save),
-                label: const Text('Registrar'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Cuenta',
+            onPressed: () {
+              // Aquí luego puedes abrir una página de perfil o configuración
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sesión no iniciada. Intenta mas tarde.'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    TextFormField(
+                      controller: _nombreController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del programa',
+                      ),
+                      validator:
+                          (value) =>
+                              value == null || value.isEmpty
+                                  ? 'Campo obligatorio'
+                                  : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _codigoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Código del programa',
+                      ),
+                      validator:
+                          (value) =>
+                              value == null || value.isEmpty
+                                  ? 'Campo obligatorio'
+                                  : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: _selectedCoordinadorId,
+                      items:
+                          _coordinadores.map((user) {
+                            return DropdownMenuItem<int>(
+                              value: user['id'],
+                              child: Text(
+                                '${user['first_name']} ${user['last_name']}',
+                              ),
+                            );
+                          }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCoordinadorId = value;
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Coordinador',
+                      ),
+                      validator:
+                          (value) =>
+                              value == null
+                                  ? 'Seleccione un coordinador'
+                                  : null,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _submitForm,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Registrar'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/principal/menu.dart';
+import 'package:mcs/frontend/barraLateral/api.dart';
 
 class Login extends StatelessWidget {
   final VoidCallback onToggleTheme;
 
   const Login({super.key, required this.onToggleTheme});
 
-
   @override
   Widget build(BuildContext context) {
-    final size=MediaQuery.of(context).size;
+    final size = MediaQuery.of(context).size;
     return Scaffold(
-      appBar: AppBar(title: Center(child: Text('MCS'),),),
+      appBar: AppBar(title: Center(child: Text('MCS'))),
 
       body: Center(
         child: Column(
@@ -20,7 +19,8 @@ class Login extends StatelessWidget {
             Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: size.width * 0.1,
-                vertical: size.height* 0.05),
+                vertical: size.height * 0.05,
+              ),
 
               child: TextField(
                 keyboardType: TextInputType.emailAddress,
@@ -28,22 +28,26 @@ class Login extends StatelessWidget {
                   labelText: 'e-mail',
                   labelStyle: TextStyle(
                     color: Colors.grey,
-                    fontWeight: FontWeight.w700
-                  )
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
 
             Padding(
-              padding: EdgeInsets.only(left: size.width * .1, right: size.width * 0.1, bottom: size.height * 0.05),
+              padding: EdgeInsets.only(
+                left: size.width * .1,
+                right: size.width * 0.1,
+                bottom: size.height * 0.05,
+              ),
               child: TextField(
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   labelText: 'password',
                   labelStyle: TextStyle(
                     color: Colors.grey,
-                    fontWeight: FontWeight.w700
-                  )
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 onChanged: (value) {},
               ),
@@ -52,17 +56,14 @@ class Login extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => Menu(onToggleTheme: onToggleTheme),
-                  ),
+                  MaterialPageRoute(builder: (context) => ApiPage()),
                 );
               },
               child: const Text('Iniciar sesión'),
-            )
+            ),
           ],
-        )
-      )
+        ),
+      ),
     );
   }
-
 }

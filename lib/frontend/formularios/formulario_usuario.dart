@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
+
 class UsuarioForm extends StatefulWidget {
   const UsuarioForm({super.key});
 
@@ -45,68 +47,141 @@ class _UsuarioFormState extends State<UsuarioForm> {
     }
   }
 
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear Usuario')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de usuario',
-                ),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                'Registrar Usuario',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
               ),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
-                ),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              DropdownButtonFormField<String>(
-                value: _rol,
-                decoration: const InputDecoration(labelText: 'Rol'),
-                items: const [
-                  DropdownMenuItem(value: 'CO', child: Text('Coordinador')),
-                  DropdownMenuItem(
-                    value: 'GC',
-                    child: Text('Gestor del Conocimiento'),
+            ),
+
+            const Spacer(),
+            // --- Campo de búsqueda ---
+            SizedBox(
+              width: 450,
+              height: 40,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar clases, profesores o salones',
+                  prefixIcon: const Icon(Icons.search),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  DropdownMenuItem(value: 'ES', child: Text('Estudiante')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _rol = value!;
-                  });
-                },
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar Usuario'),
-                onPressed: _submitForm,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Cuenta',
+            onPressed: () {
+              // Aquí luego puedes abrir una página de perfil o configuración
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sesión no iniciada. Intenta mas tarde.'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre de usuario',
+                      ),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Correo electrónico',
+                      ),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña',
+                      ),
+                      obscureText: true,
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    DropdownButtonFormField<String>(
+                      value: _rol,
+                      decoration: const InputDecoration(labelText: 'Rol'),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'CO',
+                          child: Text('Coordinador'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'GC',
+                          child: Text('Gestor del Conocimiento'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'ES',
+                          child: Text('Estudiante'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _rol = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Guardar Usuario'),
+                      onPressed: _submitForm,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
