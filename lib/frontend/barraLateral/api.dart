@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:mcs/frontend/formularios/usuarios_list.dart';
+import 'package:mcs/backend/resultados_api/usuarios_list.dart';
+import 'package:mcs/backend/resultados_api/asignaturas_list.dart';
+import 'package:mcs/backend/resultados_api/programas_list.dart';
+import 'package:mcs/backend/resultados_api/salones_list.dart';
+import 'package:mcs/backend/resultados_api/matriculas_list.dart';
 import 'package:mcs/frontend/widgets/menu_lateral.dart';
 
 class ApiPage extends StatefulWidget {
@@ -86,7 +90,7 @@ class _ApiPageState extends State<ApiPage> {
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.list),
-                    label: const Text('Ver contenido de la API'),
+                    label: const Text('Ver Usuarios'),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -95,6 +99,62 @@ class _ApiPageState extends State<ApiPage> {
                         ),
                       );
                     },
+                  ),
+
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AsignaturasListPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.list),
+                    label: const Text('Ver Asignaturas'),
+                  ),
+
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProgramasListPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.list),
+                    label: const Text('Ver Programas'),
+                  ),
+
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SalonesListPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.list),
+                    label: const Text('Ver Salones'),
+                  ),
+
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MatriculasListPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.list),
+                    label: const Text('Ver Matriculas'),
                   ),
                 ],
               ),
