@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
+
 class MatriculaForm extends StatefulWidget {
   const MatriculaForm({super.key});
 
@@ -82,70 +84,88 @@ class _MatriculaFormState extends State<MatriculaForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Registrar Matrícula')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(labelText: 'Estudiante'),
-                value: _estudianteSeleccionado,
-                items:
-                    _estudiantes.map<DropdownMenuItem<int>>((user) {
-                      return DropdownMenuItem<int>(
-                        value: user['id'],
-                        child: Text(user['username']),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _estudianteSeleccionado = value;
-                  });
-                },
-                validator:
-                    (value) =>
-                        value == null ? 'Selecciona un estudiante' : null,
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    DropdownButtonFormField<int>(
+                      decoration: const InputDecoration(
+                        labelText: 'Estudiante',
+                      ),
+                      value: _estudianteSeleccionado,
+                      items:
+                          _estudiantes.map<DropdownMenuItem<int>>((user) {
+                            return DropdownMenuItem<int>(
+                              value: user['id'],
+                              child: Text(user['username']),
+                            );
+                          }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _estudianteSeleccionado = value;
+                        });
+                      },
+                      validator:
+                          (value) =>
+                              value == null ? 'Selecciona un estudiante' : null,
+                    ),
+                    DropdownButtonFormField<int>(
+                      decoration: const InputDecoration(
+                        labelText: 'Asignatura',
+                      ),
+                      value: _asignaturaSeleccionada,
+                      items:
+                          _asignaturas.map<DropdownMenuItem<int>>((asignatura) {
+                            return DropdownMenuItem<int>(
+                              value: asignatura['id'],
+                              child: Text(
+                                "${asignatura['codigo']} - ${asignatura['nombre']}",
+                              ),
+                            );
+                          }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _asignaturaSeleccionada = value;
+                        });
+                      },
+                      validator:
+                          (value) =>
+                              value == null
+                                  ? 'Selecciona una asignatura'
+                                  : null,
+                    ),
+                    TextFormField(
+                      decoration: const InputDecoration(labelText: 'Semestre'),
+                      onChanged: (value) {
+                        _semestre = value;
+                      },
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Registrar Matrícula'),
+                      onPressed: _submitForm,
+                    ),
+                  ],
+                ),
               ),
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(labelText: 'Asignatura'),
-                value: _asignaturaSeleccionada,
-                items:
-                    _asignaturas.map<DropdownMenuItem<int>>((asignatura) {
-                      return DropdownMenuItem<int>(
-                        value: asignatura['id'],
-                        child: Text(
-                          "${asignatura['codigo']} - ${asignatura['nombre']}",
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _asignaturaSeleccionada = value;
-                  });
-                },
-                validator:
-                    (value) =>
-                        value == null ? 'Selecciona una asignatura' : null,
-              ),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Semestre'),
-                onChanged: (value) {
-                  _semestre = value;
-                },
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Registrar Matrícula'),
-                onPressed: _submitForm,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

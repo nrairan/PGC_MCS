@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
-import 'package:mcs/frontend/formularios/formulario_matricula.dart';
-import 'package:mcs/frontend/formularios/formulario_programa.dart';
-import 'package:mcs/frontend/formularios/formulario_salon.dart';
-import 'package:mcs/frontend/formularios/formulario_usuario.dart';
 import 'package:mcs/frontend/formularios/usuarios_list.dart';
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
 
 class ApiPage extends StatefulWidget {
   const ApiPage({super.key});
@@ -130,58 +126,68 @@ class _ApiPageState extends State<ApiPage> {
         ],
       ),
 
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(70.0),
-              child: Image.asset(
-                'assets/images/banner-ubate.png',
-                height: 300,
-                fit: BoxFit.contain,
-              ),
-            ),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
 
-            DropdownButtonFormField<String>(
-              value: _selectedOption,
-              hint: const Text('Selecciona para registrar'),
-              items:
-                  _options
-                      .map(
-                        (option) => DropdownMenuItem(
-                          value: option,
-                          child: Text(option),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(40.0),
+                    child: Image.asset(
+                      'assets/images/banner-ubate.png',
+                      height: 300,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  // Aquí puedes mantener tus Dropdowns y botones existentes
+                  DropdownButtonFormField<String>(
+                    value: _selectedOption,
+                    hint: const Text('Selecciona para registrar'),
+                    items:
+                        _options
+                            .map(
+                              (option) => DropdownMenuItem(
+                                value: option,
+                                child: Text(option),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: _handleSelection,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Registrar'),
+                    onPressed: _navigateToForm,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.list),
+                    label: const Text('Ver contenido de la API'),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const UsuariosListPage(),
                         ),
-                      )
-                      .toList(),
-              onChanged: _handleSelection,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Registrar'),
-              onPressed: _navigateToForm,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.list),
-              label: const Text('Ver contenido de la API'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const UsuariosListPage(),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

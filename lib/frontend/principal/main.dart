@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:mcs/frontend/barraLateral/api.dart';
 //import 'package:mcs/frontend/login/login.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:mcs/backend/api_horario.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");

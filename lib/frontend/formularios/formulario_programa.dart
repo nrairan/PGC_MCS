@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
+
 class ProgramaForm extends StatefulWidget {
   const ProgramaForm({super.key});
 
@@ -78,66 +80,80 @@ class _ProgramaFormState extends State<ProgramaForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Registrar Programa')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nombreController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del programa',
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    TextFormField(
+                      controller: _nombreController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del programa',
+                      ),
+                      validator:
+                          (value) =>
+                              value == null || value.isEmpty
+                                  ? 'Campo obligatorio'
+                                  : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _codigoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Código del programa',
+                      ),
+                      validator:
+                          (value) =>
+                              value == null || value.isEmpty
+                                  ? 'Campo obligatorio'
+                                  : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: _selectedCoordinadorId,
+                      items:
+                          _coordinadores.map((user) {
+                            return DropdownMenuItem<int>(
+                              value: user['id'],
+                              child: Text(
+                                '${user['first_name']} ${user['last_name']}',
+                              ),
+                            );
+                          }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCoordinadorId = value;
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Coordinador',
+                      ),
+                      validator:
+                          (value) =>
+                              value == null
+                                  ? 'Seleccione un coordinador'
+                                  : null,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _submitForm,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Registrar'),
+                    ),
+                  ],
                 ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Campo obligatorio'
-                            : null,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _codigoController,
-                decoration: const InputDecoration(
-                  labelText: 'Código del programa',
-                ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Campo obligatorio'
-                            : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                value: _selectedCoordinadorId,
-                items:
-                    _coordinadores.map((user) {
-                      return DropdownMenuItem<int>(
-                        value: user['id'],
-                        child: Text(
-                          '${user['first_name']} ${user['last_name']}',
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCoordinadorId = value;
-                  });
-                },
-                decoration: const InputDecoration(labelText: 'Coordinador'),
-                validator:
-                    (value) =>
-                        value == null ? 'Seleccione un coordinador' : null,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _submitForm,
-                icon: const Icon(Icons.save),
-                label: const Text('Registrar'),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
+
 class UsuarioForm extends StatefulWidget {
   const UsuarioForm({super.key});
 
@@ -49,64 +51,88 @@ class _UsuarioFormState extends State<UsuarioForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Crear Usuario')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de usuario',
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre de usuario',
+                      ),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Correo electrónico',
+                      ),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña',
+                      ),
+                      obscureText: true,
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    DropdownButtonFormField<String>(
+                      value: _rol,
+                      decoration: const InputDecoration(labelText: 'Rol'),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'CO',
+                          child: Text('Coordinador'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'GC',
+                          child: Text('Gestor del Conocimiento'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'ES',
+                          child: Text('Estudiante'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _rol = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Guardar Usuario'),
+                      onPressed: _submitForm,
+                    ),
+                  ],
                 ),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
-                ),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              DropdownButtonFormField<String>(
-                value: _rol,
-                decoration: const InputDecoration(labelText: 'Rol'),
-                items: const [
-                  DropdownMenuItem(value: 'CO', child: Text('Coordinador')),
-                  DropdownMenuItem(
-                    value: 'GC',
-                    child: Text('Gestor del Conocimiento'),
-                  ),
-                  DropdownMenuItem(value: 'ES', child: Text('Estudiante')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _rol = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar Usuario'),
-                onPressed: _submitForm,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

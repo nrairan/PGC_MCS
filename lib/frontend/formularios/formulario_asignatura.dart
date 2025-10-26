@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:mcs/frontend/widgets/menu_lateral.dart';
+
 class AsignaturaForm extends StatefulWidget {
   const AsignaturaForm({super.key});
 
@@ -86,78 +88,95 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Crear Asignatura')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _codigoController,
-                decoration: const InputDecoration(labelText: 'Código'),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              TextFormField(
-                controller: _nombreController,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              TextFormField(
-                controller: _creditosController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Créditos'),
-                validator:
-                    (value) =>
-                        value!.isEmpty ? 'Este campo es obligatorio' : null,
-              ),
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(labelText: 'Programa'),
-                value: _programaSeleccionado,
-                items:
-                    _programas.map<DropdownMenuItem<int>>((programa) {
-                      return DropdownMenuItem<int>(
-                        value: programa['id'],
-                        child: Text(programa['nombre']),
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MenuLateral(),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    TextFormField(
+                      controller: _codigoController,
+                      decoration: const InputDecoration(labelText: 'Código'),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    TextFormField(
+                      controller: _nombreController,
+                      decoration: const InputDecoration(labelText: 'Nombre'),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    TextFormField(
+                      controller: _creditosController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Créditos'),
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Este campo es obligatorio'
+                                  : null,
+                    ),
+                    DropdownButtonFormField<int>(
+                      decoration: const InputDecoration(labelText: 'Programa'),
+                      value: _programaSeleccionado,
+                      items:
+                          _programas.map<DropdownMenuItem<int>>((programa) {
+                            return DropdownMenuItem<int>(
+                              value: programa['id'],
+                              child: Text(programa['nombre']),
+                            );
+                          }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _programaSeleccionado = value;
+                        });
+                      },
+                      validator:
+                          (value) =>
+                              value == null ? 'Selecciona un programa' : null,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text('Gestores (puedes seleccionar varios)'),
+                    ..._gestores.map((gestor) {
+                      return CheckboxListTile(
+                        value: _gestoresSeleccionados.contains(gestor['id']),
+                        title: Text(gestor['username']),
+                        onChanged: (bool? selected) {
+                          setState(() {
+                            if (selected == true) {
+                              _gestoresSeleccionados.add(gestor['id']);
+                            } else {
+                              _gestoresSeleccionados.remove(gestor['id']);
+                            }
+                          });
+                        },
                       );
                     }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _programaSeleccionado = value;
-                  });
-                },
-                validator:
-                    (value) => value == null ? 'Selecciona un programa' : null,
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Guardar Asignatura'),
+                      onPressed: _submitForm,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              const Text('Gestores (puedes seleccionar varios)'),
-              ..._gestores.map((gestor) {
-                return CheckboxListTile(
-                  value: _gestoresSeleccionados.contains(gestor['id']),
-                  title: Text(gestor['username']),
-                  onChanged: (bool? selected) {
-                    setState(() {
-                      if (selected == true) {
-                        _gestoresSeleccionados.add(gestor['id']);
-                      } else {
-                        _gestoresSeleccionados.remove(gestor['id']);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar Asignatura'),
-                onPressed: _submitForm,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
