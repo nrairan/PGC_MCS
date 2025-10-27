@@ -166,15 +166,23 @@ class _ProgramaFormState extends State<ProgramaForm> {
                                   : null,
                     ),
                     const SizedBox(height: 16),
+                    //
                     DropdownButtonFormField<int>(
                       value: _selectedCoordinadorId,
                       items:
                           _coordinadores.map((user) {
+                            // Construir el texto del coordinador
+                            final nombre =
+                                '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'
+                                    .trim();
+                            final displayName =
+                                nombre.isNotEmpty
+                                    ? nombre
+                                    : user['username'] ?? 'Sin nombre';
+
                             return DropdownMenuItem<int>(
                               value: user['id'],
-                              child: Text(
-                                '${user['first_name']} ${user['last_name']}',
-                              ),
+                              child: Text(displayName),
                             );
                           }).toList(),
                       onChanged: (value) {
@@ -191,6 +199,8 @@ class _ProgramaFormState extends State<ProgramaForm> {
                                   ? 'Seleccione un coordinador'
                                   : null,
                     ),
+
+                    //
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: _submitForm,
