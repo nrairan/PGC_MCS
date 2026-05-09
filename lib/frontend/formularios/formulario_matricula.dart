@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/widgets/lateral_ti.dart';
 
 class MatriculaForm extends StatefulWidget {
   const MatriculaForm({super.key});
@@ -137,7 +137,7 @@ class _MatriculaFormState extends State<MatriculaForm> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const MenuLateral(),
+          const LateralTi(),
 
           Expanded(
             child: Padding(
@@ -150,7 +150,7 @@ class _MatriculaFormState extends State<MatriculaForm> {
                       decoration: const InputDecoration(
                         labelText: 'Estudiante',
                       ),
-                      value: _estudianteSeleccionado,
+                      initialValue: _estudianteSeleccionado,
                       items:
                           _estudiantes.map<DropdownMenuItem<int>>((user) {
                             return DropdownMenuItem<int>(
@@ -171,7 +171,7 @@ class _MatriculaFormState extends State<MatriculaForm> {
                       decoration: const InputDecoration(
                         labelText: 'Asignatura',
                       ),
-                      value: _asignaturaSeleccionada,
+                      initialValue: _asignaturaSeleccionada,
                       items:
                           _asignaturas.map<DropdownMenuItem<int>>((asignatura) {
                             return DropdownMenuItem<int>(

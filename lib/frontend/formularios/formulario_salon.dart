@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/widgets/lateral_ti.dart';
 
 class SalonForm extends StatefulWidget {
   const SalonForm({super.key});
@@ -110,7 +110,7 @@ class _SalonFormState extends State<SalonForm> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const MenuLateral(),
+          const LateralTi(),
 
           Expanded(
             child: Padding(
