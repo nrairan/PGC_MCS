@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/widgets/lateral_ti.dart';
 
 class UsuarioForm extends StatefulWidget {
   const UsuarioForm({super.key});
@@ -104,7 +104,7 @@ class _UsuarioFormState extends State<UsuarioForm> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const MenuLateral(),
+          const LateralTi(),
 
           Expanded(
             child: Padding(
@@ -148,7 +148,7 @@ class _UsuarioFormState extends State<UsuarioForm> {
                                   : null,
                     ),
                     DropdownButtonFormField<String>(
-                      value: _rol,
+                      initialValue: _rol,
                       decoration: const InputDecoration(labelText: 'Rol'),
                       items: const [
                         DropdownMenuItem(
@@ -161,7 +161,11 @@ class _UsuarioFormState extends State<UsuarioForm> {
                         ),
                         DropdownMenuItem(
                           value: 'ES',
-                          child: Text('Estudiante'),
+                          child: Text('Creador de oportunidades'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'TI',
+                          child: Text('Tecnico de soporte'),
                         ),
                       ],
                       onChanged: (value) {

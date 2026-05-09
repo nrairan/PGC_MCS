@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/formularios/formulario_usuario.dart';
+import 'package:mcs/frontend/TI-Rol/ayudas/historial.dart';
+import 'package:mcs/frontend/TI-Rol/horarios.dart';
 import 'package:mcs/frontend/formularios/formulario_salon.dart';
-import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
 import 'package:mcs/frontend/formularios/formulario_programa.dart';
-import 'package:mcs/frontend/formularios/formulario_matricula.dart';
 import 'package:mcs/frontend/barraLateral/api.dart';
+import 'package:mcs/frontend/login/login.dart';
+import 'package:mcs/frontend/TI-Rol/ayudas/crearHorario.dart';
+import 'package:mcs/frontend/TI-Rol/ayudas/salonesList.dart';
+import 'package:mcs/frontend/TI-Rol/ayudas/ruta_aprendizaje.dart';
 
 class MenuLateral extends StatelessWidget {
   const MenuLateral({super.key});
@@ -34,37 +37,54 @@ class MenuLateral extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
+          const Text("Uso rapido"),
+          _buildButton(
+            context, 
+            Icons.home, 
+            'General', 
+            const ApiPage()),
 
-          _buildButton(context, Icons.home, 'General', const ApiPage()),
           _buildButton(
             context,
-            Icons.person_add,
-            'Nuevo Usuario',
-            const UsuarioForm(),
+            Icons.edit_calendar_rounded,
+            'Crear horario',
+            const CrearHorarioScreen(),
           ),
           _buildButton(
             context,
-            Icons.meeting_room,
-            'Nuevo Salón',
-            const SalonForm(),
+            Icons.calendar_month,
+            'Horarios',
+            const HorariosScreen(),
           ),
+
+          const Text("Ayudas"),
           _buildButton(
             context,
-            Icons.book,
-            'Nueva Asignatura',
-            const AsignaturaForm(),
+            Icons.map,
+            'Ruta de aprendizaje',
+            const RutaAprendizajeScreen(),
           ),
+
           _buildButton(
             context,
-            Icons.school,
-            'Nuevo Programa',
-            const ProgramaForm(),
+            Icons.room_preferences_rounded,
+            'Información de salones',
+            const SalonesListPage()
           ),
+
+          _buildButton(
+            context, 
+            Icons.schedule, 
+            "Historial", 
+            const HistorialScreen(),
+          ),
+
+          const SizedBox(height: 260),
           _buildButton(
             context,
-            Icons.assignment,
-            'Nueva Matrícula',
-            const MatriculaForm(),
+            Icons.logout,
+            'Cerrar Sesión',
+            Login(onToggleTheme: () {}),
           ),
         ],
       ),
