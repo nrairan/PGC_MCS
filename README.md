@@ -169,7 +169,7 @@ El único archivo de pruebas (`test/widget_test.dart`) es la plantilla por defec
 GitHub: [nrairan](https://github.com/nrairan) · Correo: nrairan@ucundinamarca.edu.co
 
 **Jimmi Alejandro Arévalo Contreras**
-GitHub: Jimmi Arévalo · Correo: jimmiaarevalo@ucundinamarca.edu.co
+GitHub: JimmiArevalo · Correo: jimmiaarevalo@ucundinamarca.edu.co
 
 Universidad de Cundinamarca, seccional Ubaté — Programa de Ingeniería de Sistemas y Computación.
 
