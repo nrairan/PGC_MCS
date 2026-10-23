@@ -1,30 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/pantallas_historial/historial_coordinador_screen.dart';
 
+/// Pantalla de Historial para Coordinador.
+/// Redirige al widget paginado con infinite scroll `HistorialCoordinadorScreen`.
 class HistorialScreen extends StatelessWidget {
   const HistorialScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial de Horarios'),
-      ),
-      body: Row(
-        children: [
-          const MenuLateral(),
-
-          Expanded(child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.history, size: 80, color: Colors.grey),
-                const SizedBox(height: 20),
-                Text("Aqui se mostrará el historial", style: TextStyle(fontSize: 18, color: Colors.grey)),
-              ],
-            )))
-        ],
-      )
-    );
+    return const HistorialCoordinadorScreen();
   }
 }

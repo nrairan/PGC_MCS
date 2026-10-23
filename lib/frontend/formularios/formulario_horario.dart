@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/backend/api_horario.dart';
-import 'package:mcs/frontend/widgets/lateral_ti.dart';
 
 const Color kVerdeOscuro = Color(0xFF1A6433);
 const Color kVerdeFondo = Color(0xFFF4F6F4);
@@ -57,8 +56,10 @@ class _HorarioFormState extends State<HorarioForm> {
   bool _esCai = false;
   String? _infoCai;
 
-  // Conflictos detectados
+  // Conflictos (restricciones duras) y advertencias (blandas) detectados
   List<ConflictoHorario> _conflictos = [];
+  List<ConflictoHorario> _advertencias = [];
+  Map<String, dynamic>? _resumen;
 
   static const List<String> kDiasSemana = [
     'LUN',
@@ -138,35 +139,41 @@ class _HorarioFormState extends State<HorarioForm> {
     // Asignatura
     final asigId = editar['asignatura_id'] ?? editar['asignatura'];
     if (asigId != null && _asignaturas.isNotEmpty) {
-      try {
-        final encontrada = _asignaturas.firstWhere(
-          (a) => a['id'] == asigId,
-          orElse: () => _asignaturas.first,
-        );
-        _onSeleccionarAsignatura(encontrada);
-      } catch (_) {}
+      Map<String, dynamic>? encontrada;
+      for (final a in _asignaturas) {
+        if (a['id'].toString() == asigId.toString()) {
+          encontrada = a;
+          break;
+        }
+      }
+      encontrada ??= _asignaturas.first;
+      _aplicarAsignatura(encontrada);
     }
 
     // Gestor
     final gestorId = editar['gestor_id'] ?? editar['gestor'];
     if (gestorId != null && _gestores.isNotEmpty) {
-      try {
-        _gestorSeleccionado = _gestores.firstWhere(
-          (g) => g['id'] == gestorId,
-          orElse: () => _gestores.first,
-        );
-      } catch (_) {}
+      Map<String, dynamic>? gestorEnc;
+      for (final g in _gestores) {
+        if (g['id'].toString() == gestorId.toString()) {
+          gestorEnc = g;
+          break;
+        }
+      }
+      _gestorSeleccionado = gestorEnc ?? _gestores.first;
     }
 
     // Salón
     final salonData = editar['salon'];
     if (salonData != null && _salones.isNotEmpty) {
-      try {
-        _salonSeleccionado = _salones.firstWhere(
-          (s) => s.id.toString() == salonData.toString() || s.codigo == salonData.toString(),
-          orElse: () => _salones.first,
-        );
-      } catch (_) {}
+      SalonItem? salonEnc;
+      for (final s in _salones) {
+        if (s.id.toString() == salonData.toString() || s.codigo == salonData.toString()) {
+          salonEnc = s;
+          break;
+        }
+      }
+      _salonSeleccionado = salonEnc ?? _salones.first;
     }
 
     // Semestre
@@ -207,13 +214,11 @@ class _HorarioFormState extends State<HorarioForm> {
     return '$h:$m:00';
   }
 
-  void _onSeleccionarAsignatura(Map<String, dynamic>? asig) {
+  void _aplicarAsignatura(Map<String, dynamic>? asig) {
     if (asig == null) {
-      setState(() {
-        _asignaturaSeleccionada = null;
-        _esCai = false;
-        _infoCai = null;
-      });
+      _asignaturaSeleccionada = null;
+      _esCai = false;
+      _infoCai = null;
       return;
     }
 
@@ -221,20 +226,65 @@ class _HorarioFormState extends State<HorarioForm> {
     final nombre = asig['nombre']?.toString() ?? '';
     final esCai = CaiHelper.esCai(codigo, nombre);
 
-    setState(() {
-      _asignaturaSeleccionada = asig;
-      _esCai = esCai;
+    _asignaturaSeleccionada = asig;
+    _esCai = esCai;
 
-      if (esCai) {
-        final predefinido = CaiHelper.horarioPredefinido(codigo, nombre);
-        _diaSeleccionado = predefinido['dia']!;
-        _horaInicio = _parseTimeOfDay(predefinido['hora_inicio']!) ?? _horaInicio;
-        _horaFin = _parseTimeOfDay(predefinido['hora_fin']!) ?? _horaFin;
-        _infoCai =
-            'Núcleo CAI detectado: El horario (${kDiasNombres[_diaSeleccionado]} ${predefinido['hora_inicio']!.substring(0, 5)} - ${predefinido['hora_fin']!.substring(0, 5)}) está predefinido institucionalmente y no permite alteraciones.';
-      } else {
-        _infoCai = null;
-      }
+    // El bloque pertenece al semestre del núcleo (la API rechaza si no coincide).
+    final semAsig = (asig['semestre'] ?? '').toString();
+    if (semAsig.isNotEmpty) _semestreSeleccionado = semAsig;
+
+    // Si el gestor/salón ya elegidos dejan de ser válidos para este núcleo, se limpian.
+    if (_gestorSeleccionado != null &&
+        !_gestoresPermitidos.any((g) => g['id'].toString() == _gestorSeleccionado!['id'].toString())) {
+      _gestorSeleccionado = null;
+    }
+    if (_salonSeleccionado != null &&
+        !_salonesPermitidos.any((s) => s == _salonSeleccionado)) {
+      _salonSeleccionado = null;
+    }
+    _conflictos = [];
+    _advertencias = [];
+    _resumen = null;
+
+    if (esCai) {
+      final predefinido = CaiHelper.horarioPredefinido(codigo, nombre);
+      _diaSeleccionado = predefinido['dia']!;
+      _horaInicio = _parseTimeOfDay(predefinido['hora_inicio']!) ?? _horaInicio;
+      _horaFin = _parseTimeOfDay(predefinido['hora_fin']!) ?? _horaFin;
+      _infoCai =
+          'Núcleo CAI detectado: El horario (${kDiasNombres[_diaSeleccionado]} ${predefinido['hora_inicio']!.substring(0, 5)} - ${predefinido['hora_fin']!.substring(0, 5)}) está predefinido institucionalmente y no permite alteraciones.';
+    } else {
+      _infoCai = null;
+    }
+  }
+
+  /// Gestores habilitados para el núcleo (si el núcleo no tiene gestores, todos).
+  List<Map<String, dynamic>> get _gestoresPermitidos {
+    final ids = ((_asignaturaSeleccionada?['gestores'] as List?) ?? [])
+        .map((e) => e.toString())
+        .toSet();
+    if (ids.isEmpty) return _gestores;
+    return _gestores.where((g) => ids.contains(g['id'].toString())).toList();
+  }
+
+  bool get _requiereComputo =>
+      _asignaturaSeleccionada?['requiere_sala_computo'] == true;
+
+  /// Un núcleo que requiere sala de cómputo solo ofrece salas de cómputo.
+  List<SalonItem> get _salonesPermitidos =>
+      _requiereComputo ? _salones.where((s) => s.esComputo).toList() : _salones;
+
+  bool get _semestreBloqueado =>
+      (_asignaturaSeleccionada?['semestre'] ?? '').toString().isNotEmpty;
+
+  num _num(dynamic v) => v is num ? v : (num.tryParse('$v') ?? 0);
+
+  String _fmtH(num h) =>
+      h == h.roundToDouble() ? '${h.toInt()} h' : '${h.toStringAsFixed(1)} h';
+
+  void _onSeleccionarAsignatura(Map<String, dynamic>? asig) {
+    setState(() {
+      _aplicarAsignatura(asig);
     });
   }
 
@@ -244,6 +294,8 @@ class _HorarioFormState extends State<HorarioForm> {
     setState(() {
       _enviando = true;
       _conflictos = [];
+      _advertencias = [];
+      _resumen = null;
     });
 
     final res = await _client.validarBloque(
@@ -262,19 +314,27 @@ class _HorarioFormState extends State<HorarioForm> {
     setState(() {
       _enviando = false;
       _conflictos = res.conflictos;
+      _advertencias = res.advertencias;
+      _resumen = res.resumen;
     });
 
     if (res.valido) {
+      final nAv = res.advertencias.length;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Horario disponible. No se detectaron conflictos.'),
+              Icon(nAv == 0 ? Icons.check_circle : Icons.warning_amber_rounded,
+                  color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(nAv == 0
+                    ? 'Horario disponible. No se detectaron conflictos.'
+                    : 'Se puede guardar, pero hay $nAv advertencia(s). Revisa el panel.'),
+              ),
             ],
           ),
-          backgroundColor: kVerdeOscuro,
+          backgroundColor: nAv == 0 ? kVerdeOscuro : Colors.orange.shade800,
         ),
       );
     } else {
@@ -329,14 +389,92 @@ class _HorarioFormState extends State<HorarioForm> {
     return true;
   }
 
+  Future<bool> _confirmarAdvertencias(List<ConflictoHorario> avisos) async {
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100)),
+            SizedBox(width: 8),
+            Expanded(child: Text('El horario cumple las reglas, pero…')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: avisos
+                .map((a) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text('• ${a.mensaje}'),
+                    ))
+                .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Revisar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar de todos modos'),
+          ),
+        ],
+      ),
+    );
+    return r == true;
+  }
+
   Future<void> _submitForm() async {
     if (!_validarCamposPrevios()) return;
 
     setState(() {
       _enviando = true;
       _conflictos = [];
+      _advertencias = [];
+      _resumen = null;
     });
 
+    // 1) Consulta previa: restricciones duras bloquean; las blandas piden confirmación.
+    final previa = await _client.validarBloque(
+      asignaturaId: _asignaturaSeleccionada!['id'] as int,
+      salon: _salonSeleccionado!.id,
+      gestorId: _gestorSeleccionado!['id'] as int,
+      dia: _diaSeleccionado,
+      horaInicio: _formatTimeOfDay(_horaInicio),
+      horaFin: _formatTimeOfDay(_horaFin),
+      semestre: _semestreSeleccionado,
+      horarioExcluidoId: widget.horarioParaEditar?['id'] as int?,
+    );
+    if (!mounted) return;
+    setState(() {
+      _conflictos = previa.conflictos;
+      _advertencias = previa.advertencias;
+      _resumen = previa.resumen;
+    });
+    if (!previa.valido) {
+      setState(() => _enviando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'No se puede guardar: ${previa.conflictos.length} restricción(es) incumplida(s).'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+    if (previa.advertencias.isNotEmpty) {
+      final seguir = await _confirmarAdvertencias(previa.advertencias);
+      if (!mounted) return;
+      if (!seguir) {
+        setState(() => _enviando = false);
+        return;
+      }
+    }
+
+    // 2) Guardado definitivo (la API vuelve a validar todo).
     try {
       final esEdicion = widget.horarioParaEditar != null;
       final ResultadoGuardado res;
@@ -425,7 +563,6 @@ class _HorarioFormState extends State<HorarioForm> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const LateralTi(),
           Expanded(
             child: _cargandoDatos
                 ? const Center(
@@ -550,6 +687,22 @@ class _HorarioFormState extends State<HorarioForm> {
                                     const SizedBox(height: 16),
                                   ],
 
+                                  // Advertencias (restricciones blandas)
+                                  if (_advertencias.isNotEmpty) ...[
+                                    _PanelAdvertencias(avisos: _advertencias),
+                                    const SizedBox(height: 16),
+                                  ],
+
+                                  // Resumen de cargas (tras validar)
+                                  if (_resumen != null) ...[
+                                    _PanelResumen(
+                                      resumen: _resumen!,
+                                      fmt: _fmtH,
+                                      toNum: _num,
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+
                                   // Selector de Asignatura
                                   DropdownButtonFormField<Map<String, dynamic>>(
                                     initialValue: _asignaturaSeleccionada,
@@ -567,10 +720,11 @@ class _HorarioFormState extends State<HorarioForm> {
                                       final cod = a['codigo'] ?? '';
                                       final nom = a['nombre'] ?? '';
                                       final esC = CaiHelper.esCai(cod, nom);
+                                      final sem = (a['semestre'] ?? '').toString();
                                       return DropdownMenuItem(
                                         value: a,
                                         child: Text(
-                                          '$cod - $nom ${esC ? " [CAI]" : ""}',
+                                          '$cod - $nom${sem.isNotEmpty ? "  (Sem. $sem)" : ""}${esC ? " [CAI]" : ""}',
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontWeight: esC
@@ -588,10 +742,20 @@ class _HorarioFormState extends State<HorarioForm> {
                                         ? 'Selecciona una asignatura'
                                         : null,
                                   ),
+                                  if (_asignaturaSeleccionada != null) ...[
+                                    const SizedBox(height: 8),
+                                    _InfoAsignatura(
+                                      horasSemana: _num(_asignaturaSeleccionada!['horas_semana']),
+                                      horasAsignadas: _num(_asignaturaSeleccionada!['horas_asignadas']),
+                                      requiereComputo: _requiereComputo,
+                                      fmt: _fmtH,
+                                    ),
+                                  ],
                                   const SizedBox(height: 16),
 
                                   // Selector Obligatorio de Salón
                                   DropdownButtonFormField<SalonItem>(
+                                    key: ValueKey('salon-${_asignaturaSeleccionada?['id']}'),
                                     initialValue: _salonSeleccionado,
                                     decoration: InputDecoration(
                                       labelText: 'Salón de clases (Obligatorio) *',
@@ -601,11 +765,12 @@ class _HorarioFormState extends State<HorarioForm> {
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
-                                      helperText:
-                                          'La API requiere asignar un salón para verificar disponibilidad.',
+                                      helperText: _requiereComputo
+                                          ? 'Este núcleo requiere sala de cómputo: solo se listan salas de cómputo.'
+                                          : 'La API verifica disponibilidad, capacidad y tipo de aula.',
                                     ),
                                     isExpanded: true,
-                                    items: _salones.map((s) {
+                                    items: _salonesPermitidos.map((s) {
                                       return DropdownMenuItem(
                                         value: s,
                                         child: Text(
@@ -630,6 +795,7 @@ class _HorarioFormState extends State<HorarioForm> {
 
                                   // Selector de Gestor
                                   DropdownButtonFormField<Map<String, dynamic>>(
+                                    key: ValueKey('gestor-${_asignaturaSeleccionada?['id']}'),
                                     initialValue: _gestorSeleccionado,
                                     decoration: InputDecoration(
                                       labelText: 'Gestor del Conocimiento *',
@@ -641,7 +807,7 @@ class _HorarioFormState extends State<HorarioForm> {
                                       ),
                                     ),
                                     isExpanded: true,
-                                    items: _gestores.map((g) {
+                                    items: _gestoresPermitidos.map((g) {
                                       final nombre = [
                                         g['first_name'] ?? '',
                                         g['last_name'] ?? ''
@@ -666,12 +832,19 @@ class _HorarioFormState extends State<HorarioForm> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: DropdownButtonFormField<String>(
+                                        child: IgnorePointer(
+                                          ignoring: _semestreBloqueado,
+                                          child: DropdownButtonFormField<String>(
+                                          key: ValueKey('sem-$_semestreSeleccionado'),
                                           initialValue: _semestreSeleccionado,
                                           decoration: InputDecoration(
-                                            labelText: 'Semestre *',
+                                            labelText: _semestreBloqueado
+                                                ? 'Semestre (definido por el núcleo)'
+                                                : 'Semestre *',
                                             filled: true,
-                                            fillColor: Colors.white,
+                                            fillColor: _semestreBloqueado
+                                                ? Colors.grey.shade100
+                                                : Colors.white,
                                             border: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(10),
@@ -690,6 +863,7 @@ class _HorarioFormState extends State<HorarioForm> {
                                             }
                                           },
                                         ),
+                                        ),
                                       ),
                                       const SizedBox(width: 14),
                                       Expanded(
@@ -698,6 +872,7 @@ class _HorarioFormState extends State<HorarioForm> {
                                           child: Opacity(
                                             opacity: _esCai ? 0.6 : 1.0,
                                             child: DropdownButtonFormField<String>(
+                                              key: ValueKey('dia-$_diaSeleccionado-$_esCai'),
                                               initialValue: _diaSeleccionado,
                                               decoration: InputDecoration(
                                                 labelText: _esCai
@@ -717,6 +892,7 @@ class _HorarioFormState extends State<HorarioForm> {
                                                     : null,
                                               ),
                                               items: kDiasSemana
+                                                  .where((d) => _esCai || d != 'SAB')
                                                   .map((d) => DropdownMenuItem(
                                                         value: d,
                                                         child: Text(
@@ -916,6 +1092,133 @@ class _CampoHoraSelector extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoAsignatura extends StatelessWidget {
+  final num horasSemana;
+  final num horasAsignadas;
+  final bool requiereComputo;
+  final String Function(num) fmt;
+
+  const _InfoAsignatura({
+    required this.horasSemana,
+    required this.horasAsignadas,
+    required this.requiereComputo,
+    required this.fmt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final definido = horasSemana > 0;
+    final pendientes = horasSemana - horasAsignadas;
+    final completo = definido && pendientes <= 0;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        Chip(
+          avatar: const Icon(Icons.schedule, size: 16),
+          label: Text(definido
+              ? 'Horas/semana: ${fmt(horasSemana)} · asignadas ${fmt(horasAsignadas)}'
+                  '${completo ? " (completo)" : " · faltan ${fmt(pendientes)}"}'
+              : 'Horas/semana sin definir (edita el núcleo)'),
+          backgroundColor:
+              completo ? const Color(0xFFFFF3E0) : const Color(0xFFE8F5E9),
+        ),
+        if (requiereComputo)
+          const Chip(
+            avatar: Icon(Icons.computer, size: 16),
+            label: Text('Requiere sala de cómputo'),
+            backgroundColor: Color(0xFFE3F2FD),
+          ),
+      ],
+    );
+  }
+}
+
+class _PanelAdvertencias extends StatelessWidget {
+  final List<ConflictoHorario> avisos;
+
+  const _PanelAdvertencias({required this.avisos});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFFB300), width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 22),
+              SizedBox(width: 10),
+              Text(
+                'Advertencias (no impiden guardar):',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFFE65100)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...avisos.map((a) => Padding(
+                padding: const EdgeInsets.only(top: 3, left: 32),
+                child: Text('• ${a.mensaje}',
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF6D4C41))),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class _PanelResumen extends StatelessWidget {
+  final Map<String, dynamic> resumen;
+  final String Function(num) fmt;
+  final num Function(dynamic) toNum;
+
+  const _PanelResumen({
+    required this.resumen,
+    required this.fmt,
+      required this.toNum,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hSemAsig = toNum(resumen['horas_semana_asignatura']);
+    final hAsig = toNum(resumen['horas_asignadas_asignatura']);
+    final gestor = resumen['horas_semana_gestor'];
+    final maxG = toNum(resumen['max_horas_semana_gestor']);
+    final lineas = <String>[
+      if (hSemAsig > 0)
+        'Núcleo: ${fmt(hAsig)} de ${fmt(hSemAsig)} por semana (con este bloque).',
+      if (gestor != null)
+        'Gestor: ${fmt(toNum(gestor))} de ${fmt(maxG)} semanales (con este bloque).',
+      'Matriculados en el núcleo: ${resumen['inscritos'] ?? 0}.',
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kVerdeOscuro.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lineas
+            .map((l) => Text(l, style: const TextStyle(fontSize: 13)))
+            .toList(),
       ),
     );
   }

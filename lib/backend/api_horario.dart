@@ -15,12 +15,18 @@ class SalonItem {
   final int? capacidad;
   final String? edificio;
 
+  /// 'AULA' (aula convencional) o 'COMP' (sala de cómputo).
+  final String tipo;
+
   const SalonItem({
     required this.id,
     required this.codigo,
     this.capacidad,
     this.edificio,
+    this.tipo = 'AULA',
   });
+
+  bool get esComputo => tipo == 'COMP';
 
   factory SalonItem.fromJson(Map<String, dynamic> json) {
     return SalonItem(
@@ -30,6 +36,7 @@ class SalonItem {
           ? json['capacidad'] as int
           : int.tryParse(json['capacidad']?.toString() ?? ''),
       edificio: json['edificio']?.toString(),
+      tipo: json['tipo']?.toString() ?? 'AULA',
     );
   }
 
@@ -37,6 +44,7 @@ class SalonItem {
     final partes = <String>[codigo];
     if (edificio != null && edificio!.isNotEmpty) partes.add('Edif: $edificio');
     if (capacidad != null && capacidad! > 0) partes.add('Cap: $capacidad');
+    partes.add(esComputo ? 'Sala de cómputo' : 'Aula');
     return partes.join(' - ');
   }
 
@@ -117,6 +125,9 @@ class ConflictoHorario {
   /// Descripción legible del conflicto (proveniente de la API o traducida).
   final String mensaje;
 
+  /// Código de la regla incumplida (SALON_OCUPADO, GRUPO_OCUPADO, ...), si la API lo envía.
+  final String? tipo;
+
   /// Identificador del horario existente que causa el conflicto, si la API lo incluye.
   final int? horarioConflictoId;
 
@@ -125,6 +136,7 @@ class ConflictoHorario {
 
   const ConflictoHorario({
     required this.mensaje,
+    this.tipo,
     this.horarioConflictoId,
     this.detalleConflicto,
   });
@@ -133,12 +145,19 @@ class ConflictoHorario {
     if (json is String) {
       return ConflictoHorario(mensaje: _traducirMensaje(json));
     }
-    if (json is Map<String, dynamic>) {
-      final msg = (json['mensaje'] ?? json['detail'] ?? json['error'] ?? json.toString()) as String;
+    if (json is Map) {
+      final msg = (json['mensaje'] ?? json['detail'] ?? json['error'] ?? json.toString()).toString();
+      final tipo = json['tipo']?.toString();
       return ConflictoHorario(
-        mensaje: _traducirMensaje(msg),
-        horarioConflictoId: json['horario_id'] as int?,
-        detalleConflicto: json['detalle'] as Map<String, dynamic>?,
+        // Los mensajes con `tipo` ya vienen redactados en español por la API.
+        mensaje: tipo != null ? msg : _traducirMensaje(msg),
+        tipo: tipo,
+        // DRF serializa los valores de un ValidationError como texto ("15" / "None"),
+        // por eso NO se puede hacer `as int?`: se convierte de forma segura.
+        horarioConflictoId: int.tryParse('${json['horario_id'] ?? ''}'),
+        detalleConflicto: json['detalle'] is Map
+            ? Map<String, dynamic>.from(json['detalle'] as Map)
+            : null,
       );
     }
     return ConflictoHorario(mensaje: _traducirMensaje(json.toString()));
@@ -169,9 +188,22 @@ class ConflictoHorario {
 /// Resultado completo de la validación de un bloque propuesto.
 class ResultadoValidacion {
   final bool valido;
+
+  /// Restricciones DURAS incumplidas: impiden guardar.
   final List<ConflictoHorario> conflictos;
 
-  const ResultadoValidacion({required this.valido, required this.conflictos});
+  /// Restricciones BLANDAS (almuerzo, ventanas, carga desequilibrada, tamaño de grupo).
+  final List<ConflictoHorario> advertencias;
+
+  /// Horas asignadas del núcleo, carga semanal del gestor, inscritos, etc.
+  final Map<String, dynamic>? resumen;
+
+  const ResultadoValidacion({
+    required this.valido,
+    required this.conflictos,
+    this.advertencias = const [],
+    this.resumen,
+  });
 
   factory ResultadoValidacion.exitoso() =>
       const ResultadoValidacion(valido: true, conflictos: []);
@@ -361,7 +393,7 @@ class HorarioHttpClient {
         'hora_inicio': horaInicio,
         'hora_fin': horaFin,
         'semestre': semestre,
-        if (horarioExcluidoId != null) 'excluir_id': horarioExcluidoId,
+        if (horarioExcluidoId != null) 'horario_id': horarioExcluidoId,
       });
 
       final response = await http
@@ -373,7 +405,26 @@ class HorarioHttpClient {
         name: 'HorarioHttpClient',
       );
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode == 200) {
+        // La API responde 200 incluso cuando hay conflictos: hay que leer `valido`.
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map) {
+          List<ConflictoHorario> leer(dynamic l) => l is List
+              ? l.map((e) => ConflictoHorario.fromJson(e)).toList()
+              : <ConflictoHorario>[];
+          final conflictos = leer(decoded['conflictos']);
+          return ResultadoValidacion(
+            valido: decoded['valido'] == true && conflictos.isEmpty,
+            conflictos: conflictos,
+            advertencias: leer(decoded['advertencias']),
+            resumen: decoded['resumen'] is Map
+                ? Map<String, dynamic>.from(decoded['resumen'] as Map)
+                : null,
+          );
+        }
+        return ResultadoValidacion.exitoso();
+      }
+      if (response.statusCode == 204) {
         return ResultadoValidacion.exitoso();
       }
       if (response.statusCode == 400) {

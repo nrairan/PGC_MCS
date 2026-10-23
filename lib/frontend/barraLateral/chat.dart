@@ -259,7 +259,7 @@ Future<void> _handleSend([String? overrideText]) async {
             ),
 
           // ── Preguntas rápidas ──────────────────────────
-          if (_messages.length <= 2 && !_loading) _buildQuickQuestions(),
+          _buildQuickQuestions(),
 
           // ── Input area ─────────────────────────────────
           _buildInputArea(),
@@ -425,7 +425,7 @@ Future<void> _handleSend([String? overrideText]) async {
               backgroundColor: Colors.white,
               side: BorderSide(color: _green500.withValues(alpha: .5)),
               labelStyle: TextStyle(color: _green700),
-              onPressed: () => _handleSend(q),
+              onPressed: _loading ? null : () => _handleSend(q),
             ),
           ),
         ],

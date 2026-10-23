@@ -1,19 +1,22 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mcs/backend/api_config.dart';
 import 'package:mcs/frontend/formularios/formulario_horario.dart';
 
 // ─────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────
 
-const List<String> kDiasOrden = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'];
+// SAB solo contiene núcleos CAI (ver DIAS_REGULARES en la API).
+const List<String> kDiasOrden = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
 const Map<String, String> kDiasLabel = {
   'LUN': 'Lunes',
   'MAR': 'Martes',
   'MIE': 'Miércoles',
   'JUE': 'Jueves',
   'VIE': 'Viernes',
+  'SAB': 'Sábado',
 };
 const List<String> kSemestres = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -28,6 +31,7 @@ class BloqueHorarioApi {
   final String gestor;
   final int gestorId;
   final String? salon;
+  final int? salonId;
   final String horaInicio;
   final String horaFin;
 
@@ -38,6 +42,7 @@ class BloqueHorarioApi {
     required this.gestor,
     required this.gestorId,
     this.salon,
+    this.salonId,
     required this.horaInicio,
     required this.horaFin,
   });
@@ -50,6 +55,7 @@ class BloqueHorarioApi {
       gestor:       json['gestor'] as String,
       gestorId:     json['gestor_id'] as int,
       salon:        json['salon'] as String?,
+      salonId:      json['salon_id'] as int?,
       horaInicio:   json['hora_inicio'] as String,
       horaFin:      json['hora_fin'] as String,
     );
@@ -64,18 +70,16 @@ class BloqueHorarioApi {
 // ─────────────────────────────────────────────
 
 class HorarioVistaService {
-  // ── Ajusta igual que en crearHorario.dart ──
-  // Emulador Android:  'http://10.0.2.2:8000/api'
-  // Dispositivo físico: 'http://192.168.X.X:8000/api'
-  // Web / iOS Sim:     'http://localhost:8000/api'
-  static const String _baseUrl = 'http://127.0.0.1:8000/api';
+  // La URL base se centraliza en lib/backend/api_config.dart (kBaseUrl).
+  static const String _baseUrl = kBaseUrl;
 
   final String? authToken;
   const HorarioVistaService({this.authToken});
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Token $authToken',
+        // La API usa JWT (simplejwt): el esquema es Bearer, no Token.
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
       };
 
   Future<Map<String, List<BloqueHorarioApi>>> fetchHorario(
@@ -180,7 +184,7 @@ class _HorariosScreenState extends State<HorariosScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Crear Horario Individual',
+            tooltip: 'Crear horario',
             onPressed: () async {
               final creado = await Navigator.push<bool>(
                 context,
@@ -403,7 +407,7 @@ class _HorariosScreenState extends State<HorariosScreen>
             'asignatura_id': b.asignaturaId,
             'gestor': b.gestorId,
             'gestor_id': b.gestorId,
-            'salon': b.salon,
+            'salon': b.salonId ?? b.salon,
             'dia': dia,
             'hora_inicio': b.horaInicio,
             'hora_fin': b.horaFin,
@@ -666,7 +670,7 @@ class _PantallaSinHorario extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Crea el horario desde "Crear Horario" y guárdalo para verlo aquí.',
+              'Usa el botón + para crear el primer horario.',
               style: TextStyle(
                   fontSize: 13, color: Colors.grey.shade600),
               textAlign: TextAlign.center,

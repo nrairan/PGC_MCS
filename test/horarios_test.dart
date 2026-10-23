@@ -84,5 +84,33 @@ void main() {
       expect(c.horarioConflictoId, equals(42));
       expect(c.detalleConflicto?['asignatura'], equals('Física I'));
     });
+
+    test('DRF devuelve horario_id como texto ("15" o "None"): no debe romper el parseo', () {
+      final c = ConflictoHorario.fromJson({
+        'tipo': 'GRUPO_OCUPADO',
+        'mensaje': 'El semestre 3 ya tiene "Cálculo" en esa franja.',
+        'horario_id': '15',
+      });
+      expect(c.horarioConflictoId, equals(15));
+      expect(c.tipo, equals('GRUPO_OCUPADO'));
+      // El mensaje redactado por la API no se altera.
+      expect(c.mensaje, contains('Cálculo'));
+
+      final sinId = ConflictoHorario.fromJson({
+        'tipo': 'LIMITE_HORAS_SEMANA',
+        'mensaje': 'El gestor superaría el máximo de 40 h semanales.',
+        'horario_id': 'None',
+      });
+      expect(sinId.horarioConflictoId, isNull);
+    });
+  });
+
+  group('Tipo de salón', () {
+    test('SalonItem lee el tipo y distingue sala de cómputo', () {
+      final comp = SalonItem.fromJson({'id': 1, 'codigo': 'SC1', 'tipo': 'COMP'});
+      final aula = SalonItem.fromJson({'id': 2, 'codigo': 'A1'});
+      expect(comp.esComputo, isTrue);
+      expect(aula.esComputo, isFalse); // por defecto, aula convencional
+    });
   });
 }

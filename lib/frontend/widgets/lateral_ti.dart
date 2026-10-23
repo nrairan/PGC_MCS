@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ti.dart';
+import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
 import 'package:mcs/frontend/formularios/formulario_usuario.dart';
 import 'package:mcs/frontend/formularios/formulario_salon.dart';
 import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
 import 'package:mcs/frontend/formularios/formulario_programa.dart';
-import 'package:mcs/frontend/formularios/formulario_horario.dart';
 import 'package:mcs/frontend/login/login.dart';
 
 class LateralTi extends StatelessWidget {
@@ -30,7 +30,6 @@ class LateralTi extends StatelessWidget {
             'Navegación:',
             style: TextStyle(
               fontSize: 18,
-        
               fontWeight: FontWeight.bold,
               color: Colors.blueGrey,
             ),
@@ -60,14 +59,12 @@ class LateralTi extends StatelessWidget {
             'Salones',
             const SalonForm(),
           ),
-
           _buildButton(
             context,
             Icons.school,
             'Nuevo Programa',
             const ProgramaForm(),
           ),
-
           _buildButton(
             context,
             Icons.book,
@@ -76,9 +73,9 @@ class LateralTi extends StatelessWidget {
           ),
           _buildButton(
             context,
-            Icons.edit_calendar,
-            'Nuevo Horario',
-            const HorarioForm(),
+            Icons.history,
+            'Registros / Logs',
+            const HistorialTiScreen(),
           ),
 
           const Spacer(),

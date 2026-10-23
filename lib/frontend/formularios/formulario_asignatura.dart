@@ -32,8 +32,10 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
   final TextEditingController _codigoController   = TextEditingController();
   final TextEditingController _nombreController   = TextEditingController();
   final TextEditingController _creditosController = TextEditingController();
+  final TextEditingController _horasController    = TextEditingController();
   final TextEditingController _searchController   = TextEditingController();
 
+  bool    _requiereComputo = false;
   int?    _programaSeleccionado;
   String? _semestreSeleccionado;
 
@@ -56,6 +58,7 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
     _codigoController.dispose();
     _nombreController.dispose();
     _creditosController.dispose();
+    _horasController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -94,6 +97,8 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
           'nombre':   _nombreController.text.trim(),
           'programa': _programaSeleccionado,
           'creditos': int.parse(_creditosController.text.trim()),
+          'horas_semana': int.parse(_horasController.text.trim()),
+          'requiere_sala_computo': _requiereComputo,
           'semestre': _semestreSeleccionado,
           'gestores': [],
         }),
@@ -119,7 +124,12 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
     _codigoController.clear();
     _nombreController.clear();
     _creditosController.clear();
-    setState(() { _programaSeleccionado = null; _semestreSeleccionado = null; });
+    _horasController.clear();
+    setState(() {
+      _programaSeleccionado = null;
+      _semestreSeleccionado = null;
+      _requiereComputo = false;
+    });
   }
 
   void _snack(String msg, {required bool ok}) {
@@ -273,6 +283,34 @@ class _AsignaturaFormState extends State<AsignaturaForm> {
                   },
                 ),
                 const SizedBox(height: 28),
+
+                // ── Horas por semana ───────────────────────────────────
+                _LineField(
+                  controller: _horasController,
+                  label: 'Horas de clase por semana',
+                  teclado: TextInputType.number,
+                  validar: (v) {
+                    final n = int.tryParse((v ?? '').trim());
+                    if (n == null) return 'Indica las horas por semana';
+                    if (n < 1 || n > 40) return 'Debe estar entre 1 y 40';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Requiere sala de cómputo ───────────────────────────
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text(
+                    'Requiere sala de cómputo',
+                    style: TextStyle(fontSize: 14, color: kGrisTexto),
+                  ),
+                  value: _requiereComputo,
+                  activeColor: kVerde,
+                  onChanged: (v) => setState(() => _requiereComputo = v ?? false),
+                ),
+                const SizedBox(height: 16),
 
                 // ── Programa (dropdown) ────────────────────────────────
                 _LineDropdown<int>(

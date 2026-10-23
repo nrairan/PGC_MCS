@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/backend/resultados_api/usuarios_list.dart';
+import 'package:mcs/backend/servicios/metricas_service.dart';
 import 'package:mcs/frontend/TI-Rol/funciones/registros.dart';
+import 'package:mcs/frontend/TI-Rol/funciones/graficas.dart';
+import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
 import 'package:mcs/frontend/widgets/lateral_ti.dart';
+import 'package:mcs/frontend/widgets/graficos/graficos_ti.dart';
+import 'package:mcs/frontend/widgets/ultimos_cambios_widget.dart';
 
-class PanelTI extends StatelessWidget {
+class PanelTI extends StatefulWidget {
   const PanelTI({super.key});
+
+  @override
+  State<PanelTI> createState() => _PanelTIState();
+}
+
+class _PanelTIState extends State<PanelTI> {
+  final MetricasService _metricasService = MetricasService();
+  late Future<List<RolUsuarioMetrica>> _futureUsuarios;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureUsuarios = _metricasService.fetchUsuariosPorRol();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +36,7 @@ class PanelTI extends StatelessWidget {
       body: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          LateralTi(),
+          const LateralTi(),
 
           Expanded(
             child: Padding(
@@ -38,27 +56,36 @@ class PanelTI extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // 🔹 CARDS
-                  Row(
-                    children: [
-                      _buildCard(
-                        'Sistema',
-                        'En desarrollo',
-                        Colors.yellow[700]!,
-                        Icons.check_circle,
-                      ),
-                      _buildCard(
-                        'Usuarios registrados',
-                        'Sin datos',
-                        Colors.blue,
-                        Icons.people,
-                      ),
-                      _buildCard(
-                        'Errores',
-                        'Sin datos',
-                        Colors.orange,
-                        Icons.warning,
-                      ),
-                    ],
+                  FutureBuilder<List<RolUsuarioMetrica>>(
+                    future: _futureUsuarios,
+                    builder: (context, snapshot) {
+                      final totalUsuarios = snapshot.hasData
+                          ? snapshot.data!.fold(0, (sum, item) => sum + item.total).toString()
+                          : 'Sin datos';
+
+                      return Row(
+                        children: [
+                          _buildCard(
+                            'Sistema',
+                            'En desarrollo',
+                            Colors.yellow[700]!,
+                            Icons.check_circle,
+                          ),
+                          _buildCard(
+                            'Usuarios registrados',
+                            totalUsuarios,
+                            Colors.blue,
+                            Icons.people,
+                          ),
+                          _buildCard(
+                            'Errores',
+                            'Sin datos',
+                            Colors.orange,
+                            Icons.warning,
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 20),
@@ -80,21 +107,38 @@ class PanelTI extends StatelessWidget {
                         },
                       ),
 
-                      _actionButton('Graficos', Icons.bar_chart),
-                      _actionButton('Logs', Icons.list),
+                      _actionButton('Graficos', Icons.bar_chart, () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const graficasScreen(),
+                          ),
+                        );
+                      }),
+                      _actionButton('Logs', Icons.list, () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HistorialTiScreen(),
+                          ),
+                        );
+                      }),
                     ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  // 🔹 GRAFICAS SIMULADAS
-                  Row(
+                  // 🔹 GRAFICAS
+                  const Row(
                     children: [
-                      _chartBox('Grafica 1'),
-                      _chartBox('Grafica 2'),
-                      _chartBox('Grafica 3 '),
+                      Expanded(child: GraficoUsuariosPorRol()),
+                      SizedBox(width: 8),
+                      Expanded(child: GraficoSalonesPorEdificio()),
                     ],
                   ),
+
+                  const SizedBox(height: 12),
+                  const GraficoActividadSemanal(),
 
                   const SizedBox(height: 20),
 
@@ -106,9 +150,19 @@ class PanelTI extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  _logItem('spAdmin creó usuario         24/05/2026 -- 08:30', Icons.check, Colors.green),
-                  _logItem('pPerez cambio contraseña         20/05/2026 -- 17:35', Icons.password, Colors.red),
-                  _logItem('Usuario eliminado         15/04/2026 -- 10:15', Icons.delete, Colors.orange),
+                  UltimosCambiosWidget(
+                    rol: 'TI',
+                    onVerTodo: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HistorialTiScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -148,37 +202,14 @@ class PanelTI extends StatelessWidget {
   }
 
   // 🔹 BOTONES
-  Widget _actionButton(String text, IconData icon) {
+  Widget _actionButton(String text, IconData icon, VoidCallback onPressed) {
     return ElevatedButton.icon(
-      onPressed: () {},
+      onPressed: onPressed,
       icon: Icon(icon),
       label: Text(text),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.green[900],
       ),
-    );
-  }
-
-  // 🔹 GRAFICAS (simples)
-  Widget _chartBox(String title) {
-    return Expanded(
-      child: Container(
-        height: 150,
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(child: Text(title)),
-      ),
-    );
-  }
-
-  // 🔹 LOG ITEM
-  Widget _logItem(String text, IconData icon, Color color) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(text),
     );
   }
 }
