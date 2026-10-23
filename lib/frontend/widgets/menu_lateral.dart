@@ -6,8 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/historial.dart';
 import 'package:mcs/frontend/TI-Rol/horarios.dart';
-import 'package:mcs/frontend/formularios/formulario_salon.dart';
-import 'package:mcs/frontend/formularios/formulario_programa.dart';
 import 'package:mcs/frontend/barraLateral/api.dart';
 import 'package:mcs/frontend/login/login.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/crearHorario.dart';

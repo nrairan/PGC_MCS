@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mcs/backend/api_config.dart';
+import 'package:mcs/backend/api_horario.dart';
 
 // ─────────────────────────────────────────────
 // MODELOS DE DATOS
@@ -80,15 +82,17 @@ class BloquHorario {
   final TimeOfDay fin;
   final Asignatura asignatura;
   final GestorConocimiento gestor;
-  final String salon;
+  SalonItem? salon;
+  final bool esCai;
 
-  const BloquHorario({
+  BloquHorario({
     required this.dia,
     required this.inicio,
     required this.fin,
     required this.asignatura,
     required this.gestor,
-    required this.salon,
+    this.salon,
+    this.esCai = false,
   });
 }
 
@@ -163,10 +167,8 @@ class HorarioApiService {
   // ✅ Producción
   // static const String _baseUrl = 'https://tu-dominio.com/api';
 
-  static const String _baseUrl = 'http://127.0.0.1:8000/api'; // ← CAMBIA ESTO
+  static const String _baseUrl = kBaseUrl;
 
-  // Token de autenticación — pásalo al construir el servicio
-  // o reemplaza por tu mecanismo (SharedPreferences, etc.)
   final String? authToken;
 
   const HorarioApiService({this.authToken});
@@ -182,7 +184,6 @@ class HorarioApiService {
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final body = utf8.decode(response.bodyBytes);
-      // Soporte para respuesta lista [] o paginada {results:[]}
       dynamic parsed = jsonDecode(body);
       List<dynamic> data;
       if (parsed is List) {
@@ -200,13 +201,11 @@ class HorarioApiService {
   }
 
   /// GET /api/usuarios/?rol=GC
-  /// Filtra solo los Gestores del Conocimiento
   Future<List<GestorConocimiento>> fetchGestores() async {
     final uri = Uri.parse('$_baseUrl/usuarios/?rol=GC');
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final body = utf8.decode(response.bodyBytes);
-      // Soporte para respuesta lista [] o paginada {results:[]}
       dynamic parsed = jsonDecode(body);
       List<dynamic> data;
       if (parsed is List) {
@@ -223,8 +222,29 @@ class HorarioApiService {
     throw Exception('Error al cargar gestores (${response.statusCode}): ${response.body}');
   }
 
-  /// POST /api/horarios/  — guarda cada bloque generado
-  /// El servidor asigna el salón automáticamente si no se envía.
+  /// GET /api/salones/
+  Future<List<SalonItem>> fetchSalones() async {
+    final uri = Uri.parse('$_baseUrl/salones/');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      final body = utf8.decode(response.bodyBytes);
+      dynamic parsed = jsonDecode(body);
+      List<dynamic> data;
+      if (parsed is List) {
+        data = parsed;
+      } else if (parsed is Map && parsed.containsKey('results')) {
+        data = parsed['results'] as List<dynamic>;
+      } else {
+        data = [];
+      }
+      return data
+          .map((j) => SalonItem.fromJson(j as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Error al cargar salones (${response.statusCode}): ${response.body}');
+  }
+
+  /// POST /api/horarios/  — guarda cada bloque generado enviando salón obligatorio
   Future<void> guardarHorarios({
     required List<BloquHorario> bloques,
     required String semestre,
@@ -234,6 +254,11 @@ class HorarioApiService {
 
     for (int i = 0; i < bloques.length; i++) {
       final bloque = bloques[i];
+      if (bloque.salon == null) {
+        errores.add('Bloque ${i + 1} (${bloque.dia} ${bloque.asignatura.nombre}): Salón no asignado');
+        continue;
+      }
+
       final String horaInicio =
           '${bloque.inicio.hour.toString().padLeft(2, '0')}:${bloque.inicio.minute.toString().padLeft(2, '0')}:00';
       final String horaFin =
@@ -241,29 +266,38 @@ class HorarioApiService {
 
       final body = jsonEncode({
         'asignatura':  bloque.asignatura.id,
+        'salon':       bloque.salon!.id,
         'gestor':      bloque.gestor.id,
         'dia':         bloque.dia,
         'hora_inicio': horaInicio,
         'hora_fin':    horaFin,
-        'semestre':    semestre,   // ← necesario para filtrar en horarios.dart
-        // 'salon' no se envía → Django asigna el primero disponible
+        'semestre':    semestre,
       });
 
       final response = await http.post(uri, headers: _headers, body: body);
 
       if (response.statusCode != 201) {
-        // Recopilar errores en lugar de abortar al primer fallo
         String detalle = response.body;
         try {
           final decoded = jsonDecode(response.body);
-          detalle = decoded.toString();
+          if (decoded is Map) {
+            final msgs = <String>[];
+            decoded.forEach((k, v) {
+              if (v is List) {
+                msgs.add('$k: ${v.join(", ")}');
+              } else {
+                msgs.add('$k: $v');
+              }
+            });
+            detalle = msgs.join('; ');
+          }
         } catch (_) {}
-        errores.add('Bloque ${i + 1} (${bloque.dia} ${horaInicio}): $detalle');
+        errores.add('Bloque ${i + 1} (${bloque.dia} $horaInicio - ${bloque.salon!.codigo}): $detalle');
       }
     }
 
     if (errores.isNotEmpty) {
-      throw Exception('Algunos bloques no se guardaron:\n${errores.join('\n')}');
+      throw Exception(errores.join('\n'));
     }
   }
 
@@ -309,6 +343,7 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
   // Datos cargados desde la API
   List<Asignatura> _asignaturas = [];
   List<GestorConocimiento> _gestores = [];
+  List<SalonItem> _salones = [];
   bool _cargandoDatos = true;
   String? _errorCarga;
   late final HorarioApiService _api;
@@ -366,6 +401,7 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
       final results = await Future.wait([
         _api.fetchAsignaturas(),
         _api.fetchGestores(),
+        _api.fetchSalones(),
       ]);
 
       if (!mounted) return; // guarda post-await (éxito)
@@ -373,6 +409,7 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
       setState(() {
         _asignaturas = results[0] as List<Asignatura>;
         _gestores = results[1] as List<GestorConocimiento>;
+        _salones = results[2] as List<SalonItem>;
         _cargandoDatos = false;
       });
     } catch (e) {
@@ -491,6 +528,8 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
           asignaciones: _asignacionGestores,
           asignaturas: _asignaturas,
           gestores: _gestores,
+          salones: _salones,
+          nucleosSeleccionados: _nucleosSeleccionados,
           mismoDescanso: _mismoHorarioDescanso,
           descansoGeneral: _descansoGeneral,
           descansosPorGestor: _descansosPorGestor,
@@ -505,9 +544,15 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
         return _PasoVisualizarHorario(
           key: const ValueKey(5),
           horario: _horarioGenerado,
+          salones: _salones,
           semestre: _semestreSeleccionado ?? '',
           onReacomodar: () => setState(() => _paso = 4),
           onGuardar: _guardarHorario,
+          onCambiarSalon: (bloque, nuevoSalon) {
+            setState(() {
+              bloque.salon = nuevoSalon;
+            });
+          },
         );
       default:
         return const SizedBox.shrink();
@@ -515,6 +560,25 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
   }
 
   Future<void> _guardarHorario() async {
+    final sinSalon = _horarioGenerado.any((b) => b.salon == null);
+    if (sinSalon) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Advertencia: Todos los bloques deben tener un salón de clases seleccionado obligatoriamente.'),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     // Mostrar indicador de carga
     showDialog(
       context: context,
@@ -522,9 +586,9 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
       builder: (_) => const AlertDialog(
         content: Row(
           children: [
-            //CircularProgressIndicator(color: Color(0xFF1A6433)),
+            CircularProgressIndicator(color: Color(0xFF1A6433)),
             SizedBox(width: 16),
-            Text('Guardando horario...'),
+            Text('Guardando y validando horarios...'),
           ],
         ),
       ),
@@ -539,8 +603,14 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Horario guardado exitosamente'),
-            //backgroundColor: Color(0xFF1A6433),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Horarios guardados exitosamente en la API'),
+              ],
+            ),
+            backgroundColor: Color(0xFF1A6433),
           ),
         );
         Navigator.of(context).pop(); // sale de la pantalla
@@ -548,10 +618,39 @@ class _CrearHorarioScreenState extends State<CrearHorarioScreen> {
     } catch (e) {
       if (mounted) Navigator.of(context).pop(); // cierra dialog
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al guardar: $e'),
-            backgroundColor: Colors.red.shade700,
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Conflictos detectados por la API'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'No se pudieron guardar algunos bloques de horario:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    e.toString().replaceAll('Exception: ', ''),
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Entendido'),
+              ),
+            ],
           ),
         );
       }
@@ -712,8 +811,7 @@ class _BotonesNavegacion extends StatelessWidget {
   const _BotonesNavegacion({
     this.onAnterior,
     this.onSiguiente,
-    this.labelSiguiente = 'Siguiente',
-  });
+  }) : labelSiguiente = 'Siguiente';
 
   @override
   Widget build(BuildContext context) {
@@ -1626,6 +1724,8 @@ class _PasoGenerarHorario extends StatefulWidget {
   final Map<int, int?> asignaciones;
   final List<Asignatura> asignaturas;
   final List<GestorConocimiento> gestores;
+  final List<SalonItem> salones;
+  final Set<String> nucleosSeleccionados;
   final bool mismoDescanso;
   final HorarioDescanso descansoGeneral;
   final Map<int, HorarioDescanso> descansosPorGestor;
@@ -1638,6 +1738,8 @@ class _PasoGenerarHorario extends StatefulWidget {
     required this.asignaciones,
     required this.asignaturas,
     required this.gestores,
+    required this.salones,
+    required this.nucleosSeleccionados,
     required this.mismoDescanso,
     required this.descansoGeneral,
     required this.descansosPorGestor,
@@ -1676,8 +1778,16 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
                   icono: Icons.block,
                   color: Color(0xFFFFEBEE),
                   colorIcono: Color(0xFFC62828),
-                  titulo: 'Sin cruces de horarios',
-                  desc: 'No se permite que dos asignaturas compartan el mismo salón/gestor al mismo tiempo.',
+                  titulo: 'Sin cruces de horarios ni salones',
+                  desc: 'No se permite que dos asignaturas compartan el mismo salón o gestor al mismo tiempo.',
+                ),
+                const SizedBox(height: 10),
+                const _ReglaCard(
+                  icono: Icons.lock_clock,
+                  color: Color(0xFFE3F2FD),
+                  colorIcono: Color(0xFF1565C0),
+                  titulo: 'Horarios CAI Protegidos',
+                  desc: 'Los Núcleos Temáticos CAI se programan en sus franjas institucionales fijas e inalterables.',
                 ),
                 const SizedBox(height: 10),
                 const _ReglaCard(
@@ -1712,9 +1822,9 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
             padding: EdgeInsets.all(20),
             child: Column(
               children: [
-                //CircularProgressIndicator(color: Color(0xFF1A6433)),
+                CircularProgressIndicator(color: Color(0xFF1A6433)),
                 SizedBox(height: 12),
-                Text('Generando horario óptimo...', style: TextStyle(color: Color(0xFF2E7D52))),
+                Text('Generando horario óptimo con asignación de salones...', style: TextStyle(color: Color(0xFF2E7D52))),
               ],
             ),
           )
@@ -1755,22 +1865,16 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
 
   Future<void> _generarHorario() async {
     setState(() => _generando = true);
-
-    // Simular tiempo de procesamiento
-    await Future.delayed(const Duration(milliseconds: 1500));
-
+    await Future.delayed(const Duration(milliseconds: 1000));
     final horario = _algoritmoGenerarHorario();
     setState(() => _generando = false);
     widget.onGenerar(horario);
   }
 
   // ─── ALGORITMO DE GENERACIÓN ───────────────────────────────────────────────
-  // Distribuye asignaturas en bloques de 2 horas entre LUN-VIE,
-  // respetando cruces de gestor y bloque de almuerzo.
   List<BloquHorario> _algoritmoGenerarHorario() {
     final List<BloquHorario> resultado = [];
 
-    // Preparar asignaciones con objetos completos
     final List<AsignacionGestor> asignaciones = [];
     for (final entry in widget.asignaciones.entries) {
       if (entry.value == null) continue;
@@ -1781,24 +1885,75 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
       asignaciones.add(AsignacionGestor(asignatura: asig, gestor: gestor));
     }
 
-    // Índice de ocupación: dia → lista de (inicio, fin, gestorId)
+    final salonesDisponibles = widget.salones.isNotEmpty
+        ? widget.salones
+        : [const SalonItem(id: 1, codigo: 'Aula-1', capacidad: 30, edificio: 'Principal')];
+
+    // Ocupación: dia -> lista de mapas con {inicio, fin, gestorId, salonId}
     final Map<String, List<Map<String, dynamic>>> ocupacion = {
       for (final d in kDias) d: [],
+      'SAB': [],
     };
 
-    // Distribuir equitativamente por días (round-robin)
+    // 1. Programar primero los Núcleos CAI con sus horarios fijos e inalterables
+    for (final asig in asignaciones) {
+      final esCai = CaiHelper.esCai(asig.asignatura.codigo, asig.asignatura.nombre) ||
+          widget.nucleosSeleccionados.any((n) => n.contains(asig.asignatura.codigo));
+
+      if (esCai) {
+        final predefinido = CaiHelper.horarioPredefinido(asig.asignatura.codigo, asig.asignatura.nombre);
+        final diaCai = predefinido['dia'] ?? 'VIE';
+        final iniPartes = predefinido['hora_inicio']!.split(':');
+        final finPartes = predefinido['hora_fin']!.split(':');
+        final ini = TimeOfDay(hour: int.parse(iniPartes[0]), minute: int.parse(iniPartes[1]));
+        final fin = TimeOfDay(hour: int.parse(finPartes[0]), minute: int.parse(finPartes[1]));
+
+        // Buscar salón no ocupado en esa franja
+        SalonItem salonElegido = salonesDisponibles.first;
+        for (final s in salonesDisponibles) {
+          final salonOcupado = (ocupacion[diaCai] ?? []).any((b) =>
+              b['salonId'] == s.id &&
+              _timeOverlap(ini, fin, b['inicio'] as TimeOfDay, b['fin'] as TimeOfDay));
+          if (!salonOcupado) {
+            salonElegido = s;
+            break;
+          }
+        }
+
+        resultado.add(BloquHorario(
+          dia: diaCai,
+          inicio: ini,
+          fin: fin,
+          asignatura: asig.asignatura,
+          gestor: asig.gestor,
+          salon: salonElegido,
+          esCai: true,
+        ));
+
+        ocupacion.putIfAbsent(diaCai, () => []).add({
+          'inicio': ini,
+          'fin': fin,
+          'gestorId': asig.gestor.id,
+          'salonId': salonElegido.id,
+        });
+      }
+    }
+
+    // 2. Programar las asignaturas regulares no-CAI
     int diaIdx = 0;
     const TimeOfDay kInicioClases = TimeOfDay(hour: 7, minute: 0);
-    const int kDuracionBloque = 2; // horas por bloque
-
-    // Ordenar para distribuir equitativamente
+    const int kDuracionBloque = 2;
     final List<String> diasOrden = List.from(kDias);
 
     for (final asig in asignaciones) {
+      final esCai = CaiHelper.esCai(asig.asignatura.codigo, asig.asignatura.nombre) ||
+          widget.nucleosSeleccionados.any((n) => n.contains(asig.asignatura.codigo));
+      if (esCai) continue;
+
       bool colocado = false;
       int intentos = 0;
 
-      while (!colocado && intentos < kDias.length * 3) {
+      while (!colocado && intentos < kDias.length * 4) {
         final dia = diasOrden[diaIdx % diasOrden.length];
         diaIdx++;
         intentos++;
@@ -1807,11 +1962,11 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
             ? widget.descansoGeneral
             : (widget.descansosPorGestor[asig.gestor.id] ?? widget.descansoGeneral);
 
-        // Encontrar próximo slot libre en este día para este gestor
-        final slot = _encontrarSlot(
+        final slot = _encontrarSlotConSalon(
           dia: dia,
           ocupacion: ocupacion[dia]!,
           gestorId: asig.gestor.id,
+          salones: salonesDisponibles,
           descanso: descanso,
           horaInicio: kInicioClases,
           horaFin: widget.horaFin,
@@ -1819,18 +1974,21 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
         );
 
         if (slot != null) {
+          final salon = slot['salon'] as SalonItem;
           resultado.add(BloquHorario(
             dia: dia,
-            inicio: slot['inicio'],
-            fin: slot['fin'],
+            inicio: slot['inicio'] as TimeOfDay,
+            fin: slot['fin'] as TimeOfDay,
             asignatura: asig.asignatura,
             gestor: asig.gestor,
-            salon: 'S-${(resultado.length % 10) + 101}',
+            salon: salon,
+            esCai: false,
           ));
           ocupacion[dia]!.add({
             'inicio': slot['inicio'],
             'fin': slot['fin'],
             'gestorId': asig.gestor.id,
+            'salonId': salon.id,
           });
           colocado = true;
         }
@@ -1840,10 +1998,11 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
     return resultado;
   }
 
-  Map<String, dynamic>? _encontrarSlot({
+  Map<String, dynamic>? _encontrarSlotConSalon({
     required String dia,
     required List<Map<String, dynamic>> ocupacion,
     required int gestorId,
+    required List<SalonItem> salones,
     required HorarioDescanso descanso,
     required TimeOfDay horaInicio,
     required TimeOfDay horaFin,
@@ -1859,22 +2018,19 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
       final inicioT = TimeOfDay(hour: horaActual, minute: minActual);
       final finT = TimeOfDay(hour: finBloque, minute: minActual);
 
-      // Verificar cruce con descanso
       if (_cruceConDescanso(inicioT, finT, descanso)) {
-        // Saltar al fin del descanso
         horaActual = descanso.fin.hour;
         minActual = descanso.fin.minute;
         continue;
       }
 
-      // Verificar cruce con otros bloques del mismo gestor en este día
-      bool cruce = false;
+      bool gestorOcupado = false;
       for (final bloque in ocupacion) {
         if (bloque['gestorId'] == gestorId) {
           final bIni = bloque['inicio'] as TimeOfDay;
           final bFin = bloque['fin'] as TimeOfDay;
           if (_timeOverlap(inicioT, finT, bIni, bFin)) {
-            cruce = true;
+            gestorOcupado = true;
             horaActual = bFin.hour;
             minActual = bFin.minute;
             break;
@@ -1882,9 +2038,29 @@ class _PasoGenerarHorarioState extends State<_PasoGenerarHorario> {
         }
       }
 
-      if (!cruce) {
-        return {'inicio': inicioT, 'fin': finT};
+      if (gestorOcupado) continue;
+
+      // Buscar un salón no ocupado en este intervalo
+      SalonItem? salonLibre;
+      for (final s in salones) {
+        final ocupado = ocupacion.any((b) =>
+            b['salonId'] == s.id &&
+            _timeOverlap(inicioT, finT, b['inicio'] as TimeOfDay, b['fin'] as TimeOfDay));
+        if (!ocupado) {
+          salonLibre = s;
+          break;
+        }
       }
+
+      if (salonLibre != null) {
+        return {
+          'inicio': inicioT,
+          'fin': finT,
+          'salon': salonLibre,
+        };
+      }
+
+      horaActual += 1;
     }
     return null;
   }
@@ -1919,7 +2095,7 @@ class _ResumenConfiguracion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = (TimeOfDay t) =>
+    String fmt(TimeOfDay t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
     return Container(
@@ -2014,7 +2190,7 @@ class _ReglaCard extends StatelessWidget {
                 Text(titulo,
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: colorIcono)),
                 const SizedBox(height: 2),
-                Text(desc, style: TextStyle(fontSize: 12, color: colorIcono.withOpacity(0.8))),
+                Text(desc, style: TextStyle(fontSize: 12, color: colorIcono.withValues(alpha: 0.8))),
               ],
             ),
           ),
@@ -2030,25 +2206,32 @@ class _ReglaCard extends StatelessWidget {
 
 class _PasoVisualizarHorario extends StatelessWidget {
   final List<BloquHorario> horario;
+  final List<SalonItem> salones;
   final String semestre;
   final VoidCallback onReacomodar;
   final VoidCallback onGuardar;
+  final Function(BloquHorario bloque, SalonItem nuevoSalon) onCambiarSalon;
 
   const _PasoVisualizarHorario({
     super.key,
     required this.horario,
+    required this.salones,
     required this.semestre,
     required this.onReacomodar,
     required this.onGuardar,
+    required this.onCambiarSalon,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Agrupar por día
     final Map<String, List<BloquHorario>> porDia = {};
-    for (final dia in kDias) {
-      porDia[dia] = horario.where((b) => b.dia == dia).toList()
-        ..sort((a, b) => a.inicio.hour * 60 + a.inicio.minute - (b.inicio.hour * 60 + b.inicio.minute));
+    for (final dia in [...kDias, 'SAB']) {
+      final bl = horario.where((b) => b.dia == dia).toList();
+      if (bl.isNotEmpty) {
+        porDia[dia] = bl..sort((a, b) => a.inicio.hour * 60 + a.inicio.minute - (b.inicio.hour * 60 + b.inicio.minute));
+      } else if (kDias.contains(dia)) {
+        porDia[dia] = [];
+      }
     }
 
     return Column(
@@ -2062,12 +2245,17 @@ class _PasoVisualizarHorario extends StatelessWidget {
               const Icon(Icons.calendar_view_week, color: Color(0xFF2E7D52), size: 18),
               const SizedBox(width: 8),
               Text(
-                'Semestre $semestre  ·  ${horario.length} bloque(s)',
+                'Semestre $semestre  ·  ${horario.length} bloque(s) generados',
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF1A6433),
                   fontSize: 14,
                 ),
+              ),
+              const Spacer(),
+              const Text(
+                'Revisa y confirma el salón de cada bloque',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
           ),
@@ -2076,11 +2264,16 @@ class _PasoVisualizarHorario extends StatelessWidget {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: kDias.length,
+            itemCount: porDia.keys.length,
             itemBuilder: (_, i) {
-              final dia = kDias[i];
+              final dia = porDia.keys.elementAt(i);
               final bloques = porDia[dia]!;
-              return _TarjetaDia(dia: dia, bloques: bloques);
+              return _TarjetaDia(
+                dia: dia,
+                bloques: bloques,
+                salones: salones,
+                onCambiarSalon: onCambiarSalon,
+              );
             },
           ),
         ),
@@ -2111,7 +2304,7 @@ class _PasoVisualizarHorario extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onGuardar,
                   icon: const Icon(Icons.save_outlined, size: 16),
-                  label: const Text('Guardar'),
+                  label: const Text('Guardar Horarios'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1A6433),
                     foregroundColor: Colors.white,
@@ -2131,8 +2324,15 @@ class _PasoVisualizarHorario extends StatelessWidget {
 class _TarjetaDia extends StatelessWidget {
   final String dia;
   final List<BloquHorario> bloques;
+  final List<SalonItem> salones;
+  final Function(BloquHorario bloque, SalonItem nuevoSalon) onCambiarSalon;
 
-  const _TarjetaDia({required this.dia, required this.bloques});
+  const _TarjetaDia({
+    required this.dia,
+    required this.bloques,
+    required this.salones,
+    required this.onCambiarSalon,
+  });
 
   static const List<Color> kColoresAsig = [
     Color(0xFF1565C0),
@@ -2159,14 +2359,14 @@ class _TarjetaDia extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A6433),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1A6433),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
             ),
             child: Row(
               children: [
                 Text(
-                  kDiasLabel[dia] ?? dia,
+                  kDiasLabel[dia] ?? (dia == 'SAB' ? 'Sábado' : dia),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -2200,7 +2400,7 @@ class _TarjetaDia extends StatelessWidget {
             ...bloques.asMap().entries.map((e) {
               final bloque = e.value;
               final color = kColoresAsig[bloque.asignatura.id % kColoresAsig.length];
-              final fmt = (TimeOfDay t) =>
+              String fmt(TimeOfDay t) =>
                   '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
               return Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -2216,26 +2416,87 @@ class _TarjetaDia extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            bloque.asignatura.nombre,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: color,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  bloque.asignatura.nombre,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: color,
+                                  ),
+                                ),
+                              ),
+                              if (bloque.esCai)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE3F2FD),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFF1976D2)),
+                                  ),
+                                  child: const Text(
+                                    '🔒 CAI - Horario Fijo',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             bloque.gestor.nombre,
                             style: const TextStyle(fontSize: 12, color: Colors.black54),
                           ),
-                          Text(
-                            'Salón: ${bloque.salon}',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          const SizedBox(height: 4),
+                          // Selector de Salón interactivo
+                          Row(
+                            children: [
+                              const Icon(Icons.meeting_room, size: 14, color: Color(0xFF1A6433)),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Salón: ',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              if (salones.isEmpty)
+                                Text(
+                                  bloque.salon?.codigo ?? 'Sin salón asignado',
+                                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                )
+                              else
+                                Expanded(
+                                  child: DropdownButton<SalonItem>(
+                                    value: salones.any((s) => s.id.toString() == bloque.salon?.id.toString())
+                                        ? salones.firstWhere((s) => s.id.toString() == bloque.salon?.id.toString())
+                                        : bloque.salon,
+                                    isDense: true,
+                                    isExpanded: true,
+                                    underline: Container(height: 1, color: Colors.grey.shade300),
+                                    items: salones.map((s) => DropdownMenuItem(
+                                      value: s,
+                                      child: Text(
+                                        s.descripcionCompleta,
+                                        style: const TextStyle(fontSize: 12),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    )).toList(),
+                                    onChanged: (s) {
+                                      if (s != null) {
+                                        onCambiarSalon(bloque, s);
+                                      }
+                                    },
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [

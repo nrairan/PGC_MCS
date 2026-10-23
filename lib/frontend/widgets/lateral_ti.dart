@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/TI-Rol/ayudas/salonesList.dart';
-import 'package:mcs/backend/resultados_api/usuarios_list.dart';
 import 'package:mcs/frontend/TI-Rol/ti.dart';
 import 'package:mcs/frontend/formularios/formulario_usuario.dart';
 import 'package:mcs/frontend/formularios/formulario_salon.dart';
 import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
 import 'package:mcs/frontend/formularios/formulario_programa.dart';
-import 'package:mcs/frontend/barraLateral/api.dart';
+import 'package:mcs/frontend/formularios/formulario_horario.dart';
 import 'package:mcs/frontend/login/login.dart';
 
 class LateralTi extends StatelessWidget {
@@ -76,8 +74,14 @@ class LateralTi extends StatelessWidget {
             'Nuevo Nucleo tematico',
             const AsignaturaForm(),
           ),
+          _buildButton(
+            context,
+            Icons.edit_calendar,
+            'Nuevo Horario',
+            const HorarioForm(),
+          ),
 
-          const SizedBox(height: 300),
+          const Spacer(),
 
           _buildButton(
             context,

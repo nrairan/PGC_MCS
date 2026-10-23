@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mcs/frontend/formularios/formulario_horario.dart';
 
 // ─────────────────────────────────────────────
 // CONSTANTES
@@ -176,6 +177,28 @@ class _HorariosScreenState extends State<HorariosScreen>
           'Horarios',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Crear Horario Individual',
+            onPressed: () async {
+              final creado = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HorarioForm(authToken: widget.authToken),
+                ),
+              );
+              if (creado == true) {
+                _cargar();
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar',
+            onPressed: _cargar,
+          ),
+        ],
 
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(96),
@@ -356,12 +379,42 @@ class _HorariosScreenState extends State<HorariosScreen>
             controller: _tabController,
             children: kDiasOrden.map((dia) {
               final bloques = _horario[dia] ?? [];
-              return _VistaDia(dia: dia, bloques: bloques);
+              return _VistaDia(
+                dia: dia,
+                bloques: bloques,
+                onEditar: (b) => _editarBloque(b, dia),
+              );
             }).toList(),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _editarBloque(BloqueHorarioApi b, String dia) async {
+    final actualizado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HorarioForm(
+          authToken: widget.authToken,
+          horarioParaEditar: {
+            'id': b.id,
+            'asignatura': b.asignaturaId,
+            'asignatura_id': b.asignaturaId,
+            'gestor': b.gestorId,
+            'gestor_id': b.gestorId,
+            'salon': b.salon,
+            'dia': dia,
+            'hora_inicio': b.horaInicio,
+            'hora_fin': b.horaFin,
+            'semestre': _semestreSeleccionado,
+          },
+        ),
+      ),
+    );
+    if (actualizado == true) {
+      _cargar();
+    }
   }
 }
 
@@ -372,8 +425,13 @@ class _HorariosScreenState extends State<HorariosScreen>
 class _VistaDia extends StatelessWidget {
   final String dia;
   final List<BloqueHorarioApi> bloques;
+  final ValueChanged<BloqueHorarioApi> onEditar;
 
-  const _VistaDia({required this.dia, required this.bloques});
+  const _VistaDia({
+    required this.dia,
+    required this.bloques,
+    required this.onEditar,
+  });
 
   static const List<Color> kColores = [
     Color(0xFF1565C0),
@@ -414,7 +472,11 @@ class _VistaDia extends StatelessWidget {
       itemBuilder: (_, i) {
         final b = bloques[i];
         final color = kColores[b.asignaturaId % kColores.length];
-        return _TarjetaBloque(bloque: b, color: color);
+        return _TarjetaBloque(
+          bloque: b,
+          color: color,
+          onEditar: () => onEditar(b),
+        );
       },
     );
   }
@@ -427,8 +489,13 @@ class _VistaDia extends StatelessWidget {
 class _TarjetaBloque extends StatelessWidget {
   final BloqueHorarioApi bloque;
   final Color color;
+  final VoidCallback onEditar;
 
-  const _TarjetaBloque({required this.bloque, required this.color});
+  const _TarjetaBloque({
+    required this.bloque,
+    required this.color,
+    required this.onEditar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -440,7 +507,7 @@ class _TarjetaBloque extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -465,7 +532,7 @@ class _TarjetaBloque extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   vertical: 14, horizontal: 8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.06),
+                color: color.withValues(alpha: 0.06),
                 border: Border(
                     right: BorderSide(color: Colors.grey.shade100)),
               ),
@@ -487,7 +554,7 @@ class _TarjetaBloque extends StatelessWidget {
                     bloque.horaFinCorta,
                     style: TextStyle(
                         fontSize: 13,
-                        color: color.withOpacity(0.8)),
+                        color: color.withValues(alpha: 0.8)),
                   ),
                 ],
               ),
@@ -524,6 +591,11 @@ class _TarjetaBloque extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.black54),
+              tooltip: 'Editar horario',
+              onPressed: onEditar,
             ),
           ],
         ),

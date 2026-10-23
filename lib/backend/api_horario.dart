@@ -2,31 +2,557 @@ import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'api_config.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELOS DE DATOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Representa la información de un salón de clases disponible en la API.
+class SalonItem {
+  final dynamic id;
+  final String codigo;
+  final int? capacidad;
+  final String? edificio;
+
+  const SalonItem({
+    required this.id,
+    required this.codigo,
+    this.capacidad,
+    this.edificio,
+  });
+
+  factory SalonItem.fromJson(Map<String, dynamic> json) {
+    return SalonItem(
+      id: json['id'] ?? json['codigo'],
+      codigo: json['codigo']?.toString() ?? 'Sin código',
+      capacidad: json['capacidad'] is int
+          ? json['capacidad'] as int
+          : int.tryParse(json['capacidad']?.toString() ?? ''),
+      edificio: json['edificio']?.toString(),
+    );
+  }
+
+  String get descripcionCompleta {
+    final partes = <String>[codigo];
+    if (edificio != null && edificio!.isNotEmpty) partes.add('Edif: $edificio');
+    if (capacidad != null && capacidad! > 0) partes.add('Cap: $capacidad');
+    return partes.join(' - ');
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SalonItem &&
+          runtimeType == other.runtimeType &&
+          id.toString() == other.id.toString();
+
+  @override
+  int get hashCode => id.toString().hashCode;
+}
+
+/// Helper para identificación y horarios predefinidos de Núcleos Temáticos CAI.
+class CaiHelper {
+  static const List<String> kCodigosCaiConocidos = [
+    'DN-CAI1002020202',
+    'DN-CAI1002020201',
+    'CAI1002020202',
+    'DN-CAI1002020303',
+    'DN-CAI1002020304',
+    'CAI1002020201',
+    'CAI1002020303',
+    'CAI1002020305',
+    'CAI1002020304',
+    'CAI1002020406',
+    'DN-CAI1002020613',
+    'DN-CAI1002020612',
+    'CAI1002020507',
+  ];
+
+  /// Determina si una asignatura corresponde a un Núcleo CAI.
+  static bool esCai(String codigo, [String? nombre]) {
+    final cod = codigo.toUpperCase();
+    final nom = (nombre ?? '').toUpperCase();
+    if (cod.contains('CAI') || nom.contains('CAI')) return true;
+    for (final c in kCodigosCaiConocidos) {
+      if (cod.contains(c.toUpperCase())) return true;
+    }
+    return false;
+  }
+
+  /// Retorna el horario predefinido bloqueado e inalterable para un Núcleo CAI.
+  static Map<String, String> horarioPredefinido(String codigo, [String? nombre]) {
+    final cod = codigo.toUpperCase();
+    final nom = (nombre ?? '').toUpperCase();
+
+    if (cod.contains('1002020202') || nom.contains('LECTURA CRÍTICA') || nom.contains('COMUNICACIÓN')) {
+      return {'dia': 'VIE', 'hora_inicio': '07:00:00', 'hora_fin': '09:00:00'};
+    }
+    if (cod.contains('1002020201') || nom.contains('RAZONAMIENTO')) {
+      return {'dia': 'VIE', 'hora_inicio': '09:00:00', 'hora_fin': '11:00:00'};
+    }
+    if (cod.contains('1002020303') || nom.contains('CIUDADANIA') || nom.contains('CIUDADANÍA')) {
+      return {'dia': 'VIE', 'hora_inicio': '11:00:00', 'hora_fin': '13:00:00'};
+    }
+    if (cod.contains('1002020304') || nom.contains('LENGUA EXTRANJERA')) {
+      return {'dia': 'SAB', 'hora_inicio': '08:00:00', 'hora_fin': '12:00:00'};
+    }
+    if (cod.contains('1002020612') || nom.contains('EMPRENDIMIENTO')) {
+      return {'dia': 'VIE', 'hora_inicio': '14:00:00', 'hora_fin': '16:00:00'};
+    }
+    if (cod.contains('1002020613') || nom.contains('TECNOLOGIA') || nom.contains('INNOVACION') || nom.contains('INNOVACIÓN')) {
+      return {'dia': 'VIE', 'hora_inicio': '16:00:00', 'hora_fin': '18:00:00'};
+    }
+    // Horario por defecto protegido para CAI
+    return {'dia': 'VIE', 'hora_inicio': '08:00:00', 'hora_fin': '10:00:00'};
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELOS DE CONFLICTO
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Representa un único conflicto de horario devuelto por la API.
+class ConflictoHorario {
+  /// Descripción legible del conflicto (proveniente de la API o traducida).
+  final String mensaje;
+
+  /// Identificador del horario existente que causa el conflicto, si la API lo incluye.
+  final int? horarioConflictoId;
+
+  /// Datos adicionales del horario en conflicto.
+  final Map<String, dynamic>? detalleConflicto;
+
+  const ConflictoHorario({
+    required this.mensaje,
+    this.horarioConflictoId,
+    this.detalleConflicto,
+  });
+
+  factory ConflictoHorario.fromJson(dynamic json) {
+    if (json is String) {
+      return ConflictoHorario(mensaje: _traducirMensaje(json));
+    }
+    if (json is Map<String, dynamic>) {
+      final msg = (json['mensaje'] ?? json['detail'] ?? json['error'] ?? json.toString()) as String;
+      return ConflictoHorario(
+        mensaje: _traducirMensaje(msg),
+        horarioConflictoId: json['horario_id'] as int?,
+        detalleConflicto: json['detalle'] as Map<String, dynamic>?,
+      );
+    }
+    return ConflictoHorario(mensaje: _traducirMensaje(json.toString()));
+  }
+
+  static String _traducirMensaje(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('classroom') || lower.contains('salon') || lower.contains('room')) {
+      if (lower.contains('already occupied') || lower.contains('ocupado') || lower.contains('conflict')) {
+        return 'El salón seleccionado ya está ocupado en ese horario.';
+      }
+    }
+    if (lower.contains('teacher') || lower.contains('gestor') || lower.contains('professor')) {
+      if (lower.contains('already') || lower.contains('ocupado') || lower.contains('overlap')) {
+        return 'El gestor ya tiene una clase asignada durante ese intervalo.';
+      }
+    }
+    if (lower.contains('max') && (lower.contains('hour') || lower.contains('hora'))) {
+      return 'Se supera el máximo de horas diarias permitido.';
+    }
+    if (lower.contains('start') && lower.contains('end') || lower.contains('hora de fin')) {
+      return 'La hora de fin debe ser posterior a la hora de inicio.';
+    }
+    return raw;
+  }
+}
+
+/// Resultado completo de la validación de un bloque propuesto.
+class ResultadoValidacion {
+  final bool valido;
+  final List<ConflictoHorario> conflictos;
+
+  const ResultadoValidacion({required this.valido, required this.conflictos});
+
+  factory ResultadoValidacion.exitoso() =>
+      const ResultadoValidacion(valido: true, conflictos: []);
+}
+
+/// Resultado del intento de guardar un bloque individual.
+class ResultadoGuardado {
+  final Map<String, dynamic>? bloqueGuardado;
+  final List<ConflictoHorario> conflictos;
+  final int statusCode;
+
+  bool get exitoso => (statusCode == 200 || statusCode == 201) && conflictos.isEmpty;
+
+  const ResultadoGuardado({
+    this.bloqueGuardado,
+    required this.conflictos,
+    required this.statusCode,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLIENTE HTTP PRINCIPAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Cliente HTTP para todos los endpoints de horarios.
+class HorarioHttpClient {
+  final String? authToken;
+
+  const HorarioHttpClient({this.authToken});
+
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
+      };
+
+  List<ConflictoHorario> _parsearConflictos(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        if (decoded.containsKey('conflictos')) {
+          final lista = decoded['conflictos'];
+          if (lista is List) {
+            return lista.map((e) => ConflictoHorario.fromJson(e)).toList();
+          }
+        }
+        if (decoded.containsKey('error')) {
+          return [ConflictoHorario.fromJson(decoded['error'])];
+        }
+        if (decoded.containsKey('detail')) {
+          return [ConflictoHorario.fromJson(decoded['detail'])];
+        }
+        final List<ConflictoHorario> erroresCampo = [];
+        for (final entry in decoded.entries) {
+          final valor = entry.value;
+          if (valor is List) {
+            for (final msg in valor) {
+              erroresCampo.add(ConflictoHorario(
+                  mensaje: '${entry.key}: ${msg.toString()}'));
+            }
+          } else {
+            erroresCampo.add(
+                ConflictoHorario(mensaje: '${entry.key}: ${valor.toString()}'));
+          }
+        }
+        if (erroresCampo.isNotEmpty) return erroresCampo;
+      }
+      if (decoded is List) {
+        return decoded.map((e) => ConflictoHorario.fromJson(e)).toList();
+      }
+      if (decoded is String) {
+        return [ConflictoHorario.fromJson(decoded)];
+      }
+    } catch (_) {}
+    return [ConflictoHorario(mensaje: body.isNotEmpty ? body : 'Error desconocido al validar horario')];
+  }
+
+  String _mensajeDeEstado(int statusCode) {
+    switch (statusCode) {
+      case 400:
+        return 'La solicitud contiene datos inválidos o presenta conflictos.';
+      case 401:
+        return 'No autorizado. Inicia sesión nuevamente.';
+      case 403:
+        return 'No tienes permiso para realizar esta operación.';
+      case 404:
+        return 'Recurso no encontrado. Verifica la configuración de la API.';
+      case 500:
+        return 'Error interno del servidor. Intenta más tarde.';
+      default:
+        return 'Error inesperado de la API ($statusCode).';
+    }
+  }
+
+  // ── Métodos públicos ──────────────────────────────────────────────────────
+
+  /// GET /api/horarios/por_semestre/?semestre=X
+  Future<Map<String, List<Map<String, dynamic>>>> fetchHorarioPorSemestre(
+      String semestre) async {
+    try {
+      final uri =
+          Uri.parse('$kBaseUrl/horarios/por_semestre/?semestre=$semestre');
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> raw =
+            jsonDecode(utf8.decode(response.bodyBytes));
+        return raw.map((dia, bloques) => MapEntry(
+              dia,
+              (bloques as List)
+                  .map((b) => Map<String, dynamic>.from(b as Map))
+                  .toList(),
+            ));
+      }
+      throw Exception(
+          '${_mensajeDeEstado(response.statusCode)}\n${response.body}');
+    } on Exception {
+      rethrow;
+    } catch (e, st) {
+      developer.log('fetchHorarioPorSemestre error', name: 'HorarioHttpClient', error: e, stackTrace: st);
+      throw Exception(_mensajeDeErrorConexion(e));
+    }
+  }
+
+  /// GET /api/asignaturas/
+  Future<List<Map<String, dynamic>>> fetchAsignaturas() async {
+    return _getList('$kBaseUrl/asignaturas/');
+  }
+
+  /// GET /api/usuarios/?rol=GC
+  Future<List<Map<String, dynamic>>> fetchGestores() async {
+    return _getList('$kBaseUrl/usuarios/?rol=GC');
+  }
+
+  /// GET /api/salones/
+  Future<List<SalonItem>> fetchSalones() async {
+    final list = await _getList('$kBaseUrl/salones/');
+    return list.map((j) => SalonItem.fromJson(j)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _getList(String url) async {
+    try {
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final body = utf8.decode(response.bodyBytes);
+        dynamic parsed = jsonDecode(body);
+        List<dynamic> data;
+        if (parsed is List) {
+          data = parsed;
+        } else if (parsed is Map && parsed.containsKey('results')) {
+          data = parsed['results'] as List<dynamic>;
+        } else {
+          data = [];
+        }
+        return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      throw Exception(_mensajeDeEstado(response.statusCode));
+    } on Exception {
+      rethrow;
+    } catch (e) {
+      throw Exception(_mensajeDeErrorConexion(e));
+    }
+  }
+
+  /// POST /api/horarios/validar/
+  ///
+  /// Valida el bloque antes de guardar. Envía salón obligatorio y campos del contrato.
+  Future<ResultadoValidacion> validarBloque({
+    required int asignaturaId,
+    required dynamic salon,
+    required int gestorId,
+    required String dia,
+    required String horaInicio,
+    required String horaFin,
+    required String semestre,
+    int? horarioExcluidoId,
+  }) async {
+    try {
+      final uri = Uri.parse('$kBaseUrl/horarios/validar/');
+      final body = jsonEncode({
+        'asignatura': asignaturaId,
+        'salon': salon,
+        'gestor': gestorId,
+        'dia': dia,
+        'hora_inicio': horaInicio,
+        'hora_fin': horaFin,
+        'semestre': semestre,
+        if (horarioExcluidoId != null) 'excluir_id': horarioExcluidoId,
+      });
+
+      final response = await http
+          .post(uri, headers: _headers, body: body)
+          .timeout(const Duration(seconds: 15));
+
+      developer.log(
+        'validarBloque → ${response.statusCode}: ${response.body}',
+        name: 'HorarioHttpClient',
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return ResultadoValidacion.exitoso();
+      }
+      if (response.statusCode == 400) {
+        final conflictos = _parsearConflictos(response.body);
+        return ResultadoValidacion(valido: false, conflictos: conflictos);
+      }
+      if (response.statusCode == 404) {
+        developer.log(
+          'POST /api/horarios/validar/ no disponible (404). Validación delegada a POST definitivo.',
+          name: 'HorarioHttpClient',
+        );
+        return ResultadoValidacion.exitoso();
+      }
+      return ResultadoValidacion(
+        valido: false,
+        conflictos: [ConflictoHorario(mensaje: _mensajeDeEstado(response.statusCode))],
+      );
+    } on Exception catch (e) {
+      developer.log('validarBloque: error de conexión', name: 'HorarioHttpClient', error: e);
+      return ResultadoValidacion(
+        valido: false,
+        conflictos: [ConflictoHorario(mensaje: _mensajeDeErrorConexion(e))],
+      );
+    }
+  }
+
+  /// POST /api/horarios/
+  ///
+  /// Guarda un nuevo horario asegurando el envío del campo `salon` obligatorio.
+  Future<ResultadoGuardado> guardarBloque({
+    required int asignaturaId,
+    required dynamic salon,
+    required int gestorId,
+    required String dia,
+    required String horaInicio,
+    required String horaFin,
+    required String semestre,
+  }) async {
+    try {
+      final uri = Uri.parse('$kBaseUrl/horarios/');
+      final bodyMap = {
+        'asignatura': asignaturaId,
+        'salon': salon,
+        'gestor': gestorId,
+        'dia': dia,
+        'hora_inicio': horaInicio,
+        'hora_fin': horaFin,
+        'semestre': semestre,
+      };
+
+      developer.log(
+        'guardarBloque → POST $uri: ${jsonEncode(bodyMap)}',
+        name: 'HorarioHttpClient',
+      );
+
+      final response = await http
+          .post(uri, headers: _headers, body: jsonEncode(bodyMap))
+          .timeout(const Duration(seconds: 15));
+
+      developer.log(
+        'guardarBloque ← ${response.statusCode}: ${response.body}',
+        name: 'HorarioHttpClient',
+      );
+
+      if (response.statusCode == 201) {
+        final bloqueGuardado =
+            Map<String, dynamic>.from(jsonDecode(utf8.decode(response.bodyBytes)) as Map);
+        return ResultadoGuardado(
+          bloqueGuardado: bloqueGuardado,
+          conflictos: [],
+          statusCode: 201,
+        );
+      }
+
+      if (response.statusCode == 400) {
+        return ResultadoGuardado(
+          conflictos: _parsearConflictos(response.body),
+          statusCode: 400,
+        );
+      }
+
+      return ResultadoGuardado(
+        conflictos: [
+          ConflictoHorario(mensaje: _mensajeDeEstado(response.statusCode))
+        ],
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      return ResultadoGuardado(
+        conflictos: [ConflictoHorario(mensaje: _mensajeDeErrorConexion(e))],
+        statusCode: -1,
+      );
+    }
+  }
+
+  /// PUT /api/horarios/{id}/
+  Future<ResultadoGuardado> actualizarBloque({
+    required int horarioId,
+    required int asignaturaId,
+    required dynamic salon,
+    required int gestorId,
+    required String dia,
+    required String horaInicio,
+    required String horaFin,
+    required String semestre,
+  }) async {
+    try {
+      final uri = Uri.parse('$kBaseUrl/horarios/$horarioId/');
+      final bodyMap = {
+        'asignatura': asignaturaId,
+        'salon': salon,
+        'gestor': gestorId,
+        'dia': dia,
+        'hora_inicio': horaInicio,
+        'hora_fin': horaFin,
+        'semestre': semestre,
+      };
+
+      final response = await http
+          .put(uri, headers: _headers, body: jsonEncode(bodyMap))
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return ResultadoGuardado(
+          bloqueGuardado:
+              Map<String, dynamic>.from(jsonDecode(utf8.decode(response.bodyBytes)) as Map),
+          conflictos: [],
+          statusCode: 200,
+        );
+      }
+      if (response.statusCode == 400) {
+        return ResultadoGuardado(
+          conflictos: _parsearConflictos(response.body),
+          statusCode: 400,
+        );
+      }
+      return ResultadoGuardado(
+        conflictos: [
+          ConflictoHorario(mensaje: _mensajeDeEstado(response.statusCode))
+        ],
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      return ResultadoGuardado(
+        conflictos: [ConflictoHorario(mensaje: _mensajeDeErrorConexion(e))],
+        statusCode: -1,
+      );
+    }
+  }
+
+  String _mensajeDeErrorConexion(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('socketexception') ||
+        msg.contains('connection refused') ||
+        msg.contains('network')) {
+      return 'No se pudo conectar con la API. Verifica que el servidor Django esté activo '
+          'y que la URL base en lib/backend/api_config.dart sea la indicada para tu dispositivo.';
+    }
+    if (msg.contains('timeoutexception') || msg.contains('timed out')) {
+      return 'La solicitud tardó demasiado. Intenta nuevamente.';
+    }
+    developer.log('Error de conexión', name: 'HorarioHttpClient', error: e);
+    return 'Error de conexión inesperado.';
+  }
+}
+
+/// Cliente legado mantenido por compatibilidad
 class HorarioService {
   final String baseUrl;
 
-  // Constructor mejorado con valor por defecto
-  HorarioService([this.baseUrl = 'http://127.0.0.1:8000/api/']);
+  HorarioService([this.baseUrl = '$kBaseUrl/']);
 
   Future<List<dynamic>> getHorarios() async {
     try {
-      final uri = Uri.parse(baseUrl); // Usa la variable baseUrl
+      final uri = Uri.parse(baseUrl);
       final response = await http.get(uri);
-
-      developer.log(
-        'API Response',
-        name: 'HorarioService',
-        error: 'Status: ${response.statusCode}\nBody: ${response.body}',
-      );
-
       return _parseResponse(response);
     } catch (e, stackTrace) {
-      developer.log(
-        'Error fetching horarios',
-        name: 'HorarioService',
-        error: e,
-        stackTrace: stackTrace,
-      );
+      developer.log('Error fetching horarios', name: 'HorarioService', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -35,16 +561,12 @@ class HorarioService {
     if (response.statusCode != 200) {
       throw _handleError(response.statusCode, response.body);
     }
-
     try {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
       if (!decoded.containsKey('horarios')) {
-        throw FormatException('Campo "horarios" no encontrado');
+        throw const FormatException('Campo "horarios" no encontrado');
       }
-
       final horarios = decoded['horarios'];
-
       if (horarios is List) return horarios;
       if (horarios is String) {
         try {
@@ -53,7 +575,7 @@ class HorarioService {
           return [horarios];
         }
       }
-      throw FormatException('Formato inválido para "horarios"');
+      throw const FormatException('Formato inválido para "horarios"');
     } on FormatException catch (e) {
       developer.log('Parse error', name: 'HorarioService', error: e);
       throw FormatException('Error parsing response: ${e.message}');
