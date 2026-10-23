@@ -1,30 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
 
+/// Pantalla de Registros / Logs para el rol de TI.
+/// Redirige a `HistorialTiScreen` con el menú lateral de TI (`LateralTi`).
 class RegistrosScreen extends StatelessWidget {
   const RegistrosScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registros'),
-      ),
-      body: Row(
-          children: [
-          const MenuLateral(),
-
-          Expanded(child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.group, size: 80, color: Colors.grey),
-                const SizedBox(height: 20),
-                Text("Aqui se mostrará los registros", style: TextStyle(fontSize: 18, color: Colors.grey)),
-              ],
-            )))
-        ],     
-      ),
-    );
+    return const HistorialTiScreen();
   }
 }

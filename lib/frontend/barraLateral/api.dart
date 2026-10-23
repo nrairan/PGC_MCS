@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:mcs/backend/resultados_api/usuarios_list.dart';
 import 'package:mcs/backend/resultados_api/asignaturas_list.dart';
 import 'package:mcs/backend/resultados_api/programas_list.dart';
+import 'package:mcs/backend/servicios/metricas_service.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/salonesList.dart';
 import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/widgets/graficos/graficos_coordinador.dart';
+import 'package:mcs/frontend/widgets/ultimos_cambios_widget.dart';
+import 'package:mcs/frontend/pantallas_historial/historial_coordinador_screen.dart';
 
 class ApiPage extends StatefulWidget {
   const ApiPage({super.key});
@@ -15,6 +19,14 @@ class ApiPage extends StatefulWidget {
 
 class _ApiPageState extends State<ApiPage> {
   final TextEditingController _searchController = TextEditingController();
+  final MetricasService _metricasService = MetricasService();
+  late Future<EstadoHorariosMetrica> _futureEstado;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureEstado = _metricasService.fetchEstadoHorarios();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +69,6 @@ class _ApiPageState extends State<ApiPage> {
             icon: const Icon(Icons.account_circle),
             tooltip: 'Cuenta',
             onPressed: () {
-              // Aquí luego puedes abrir una página de perfil o configuración
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Opcion no disponible. Intenta mas tarde.'),
@@ -74,137 +85,163 @@ class _ApiPageState extends State<ApiPage> {
           const MenuLateral(),
 
           Expanded(
-            child: Padding(padding: const EdgeInsetsGeometry.all( 16.0 ),
+            child: Padding(
+              padding: const EdgeInsetsGeometry.all(16.0),
               child: ListView(
                 children: [
-                    const Text(
-                      'Panel de Coordinación',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  const Text(
+                    'Panel de Coordinación',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
                     
                   const SizedBox(height: 20),
                   const Text('Resumen'),
+                  FutureBuilder<EstadoHorariosMetrica>(
+                    future: _futureEstado,
+                    builder: (context, snapshot) {
+                      final completados = snapshot.hasData
+                          ? snapshot.data!.completados.toString()
+                          : 'Sin datos';
+                      final pendientes = snapshot.hasData
+                          ? snapshot.data!.pendientes.toString()
+                          : 'Sin datos';
+                      final conflictos = snapshot.hasData
+                          ? snapshot.data!.conConflictos.toString()
+                          : 'Sin datos';
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildCard(
+                            'Horarios completados',
+                            completados,
+                            Colors.green,
+                            Icons.check_circle,
+                          ),
+                          _buildCard(
+                            'Horarios por completar',
+                            pendientes,
+                            Colors.blue,
+                            Icons.schedule,
+                          ),
+                          _buildCard(
+                            'Cruces de horarios',
+                            conflictos,
+                            Colors.red,
+                            Icons.warning,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                
+                  const SizedBox(height: 30),
+
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      //Tarjetas
-                      _buildCard(
-                        'Horarios completados',
-                        'Sin datos',
-                        Colors.green,
-                        Icons.check_circle,
+                      Column(
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.people),
+                            label: const Text('Ver Usuarios'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const UsuariosListPage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                      _buildCard(
-                        'Horarios por completar',
-                        'Sin datos',
-                        Colors.blue,
-                        Icons.schedule,
+                      Column(
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.book),
+                            label: const Text('Ver Nucleos tematicos'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AsignaturasListPage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                      _buildCard(
-                        'Cruces de horarios',
-                        'Sin datos',
-                        Colors.red,
-                        Icons.warning,
+                      Column(
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.meeting_room),
+                            label: const Text('Ver Salones'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SalonesListPage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.school),
+                            label: const Text('Ver Programas'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProgramasListPage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                
-                const SizedBox(height: 30),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Column(
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.people),
-                          label: const Text('Ver Usuarios'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const UsuariosListPage(),
-                              ),
-                            );
-                          },
+                  const SizedBox(height: 30),
+
+                  // 🔹 GRAFICAS
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: GraficoHorariosPorDia(semestre: '1'),
+                      ),
+                      SizedBox(width: 20),
+                      Expanded(
+                        child: GraficoEstadoHorarios(),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // 🔹 TABLA DE ÚLTIMOS 5 CAMBIOS
+                  UltimosCambiosWidget(
+                    rol: 'CO',
+                    onVerTodo: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HistorialCoordinadorScreen(),
                         ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.book),
-                          label: const Text('Ver Nucleos tematicos'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AsignaturasListPage(),
-                              ),
-                            );
-                          },
-                        ),
+                      );
+                    },
+                  ),
 
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.meeting_room),
-                          label: const Text('Ver Salones'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SalonesListPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.school),
-                          label: const Text('Ver Programas'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ProgramasListPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 30),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/Grafica_Bloque1.png',
-                      height: 300,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(width: 180),
-                    Image.asset(
-                      'assets/images/Grafica_Bloque2.png',
-                      height: 300,
-                      fit: BoxFit.contain,
-                    ),
-                  ],
-                ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -214,13 +251,13 @@ class _ApiPageState extends State<ApiPage> {
     );
   }
 
-   Widget _buildCard(String title, String value, Color color, IconData icon) {
+  Widget _buildCard(String title, String value, Color color, IconData icon) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.all(8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(

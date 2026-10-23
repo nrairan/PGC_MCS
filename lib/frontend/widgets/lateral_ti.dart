@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/TI-Rol/ayudas/salonesList.dart';
-import 'package:mcs/backend/resultados_api/usuarios_list.dart';
 import 'package:mcs/frontend/TI-Rol/ti.dart';
+import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
 import 'package:mcs/frontend/formularios/formulario_usuario.dart';
 import 'package:mcs/frontend/formularios/formulario_salon.dart';
 import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
 import 'package:mcs/frontend/formularios/formulario_programa.dart';
-import 'package:mcs/frontend/barraLateral/api.dart';
 import 'package:mcs/frontend/login/login.dart';
 
 class LateralTi extends StatelessWidget {
@@ -32,7 +30,6 @@ class LateralTi extends StatelessWidget {
             'Navegación:',
             style: TextStyle(
               fontSize: 18,
-        
               fontWeight: FontWeight.bold,
               color: Colors.blueGrey,
             ),
@@ -62,22 +59,26 @@ class LateralTi extends StatelessWidget {
             'Salones',
             const SalonForm(),
           ),
-
           _buildButton(
             context,
             Icons.school,
             'Nuevo Programa',
             const ProgramaForm(),
           ),
-
           _buildButton(
             context,
             Icons.book,
             'Nuevo Nucleo tematico',
             const AsignaturaForm(),
           ),
+          _buildButton(
+            context,
+            Icons.history,
+            'Registros / Logs',
+            const HistorialTiScreen(),
+          ),
 
-          const SizedBox(height: 300),
+          const Spacer(),
 
           _buildButton(
             context,

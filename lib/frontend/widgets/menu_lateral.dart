@@ -1,20 +1,12 @@
 // lib/frontend/widgets/menu_lateral.dart
-//
-// MenuLateral actualizado con el botón "Asistente IA" (ChatScreen).
-// Solo se añade el import y el botón — el resto es idéntico al original.
 
 import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/historial.dart';
 import 'package:mcs/frontend/TI-Rol/horarios.dart';
-import 'package:mcs/frontend/formularios/formulario_salon.dart';
-import 'package:mcs/frontend/formularios/formulario_programa.dart';
 import 'package:mcs/frontend/barraLateral/api.dart';
 import 'package:mcs/frontend/login/login.dart';
-import 'package:mcs/frontend/TI-Rol/ayudas/crearHorario.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/salonesList.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/ruta_aprendizaje.dart';
-
-// ↓ NUEVO IMPORT — Chatbot AsistUC
 import 'package:mcs/frontend/barraLateral/chat.dart';
 
 class MenuLateral extends StatelessWidget {
@@ -47,12 +39,6 @@ class MenuLateral extends StatelessWidget {
           const SizedBox(height: 10),
           const Text("Uso rápido"),
           _buildButton(context, Icons.home, 'General', const ApiPage()),
-          _buildButton(
-            context,
-            Icons.edit_calendar_rounded,
-            'Crear horario',
-            const CrearHorarioScreen(),
-          ),
           _buildButton(
             context,
             Icons.calendar_month,

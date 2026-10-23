@@ -259,7 +259,7 @@ Future<void> _handleSend([String? overrideText]) async {
             ),
 
           // ── Preguntas rápidas ──────────────────────────
-          if (_messages.length <= 2 && !_loading) _buildQuickQuestions(),
+          _buildQuickQuestions(),
 
           // ── Input area ─────────────────────────────────
           _buildInputArea(),
@@ -325,7 +325,7 @@ Future<void> _handleSend([String? overrideText]) async {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       )
@@ -387,7 +387,7 @@ Future<void> _handleSend([String? overrideText]) async {
             fontFamily: 'monospace',
             fontSize: 12,
             backgroundColor: isUser
-                ? Colors.white.withOpacity(.15)
+                ? Colors.white.withValues(alpha: .15)
                 : _green100,
             color: isUser ? Colors.white : _green700,
           ),
@@ -423,9 +423,9 @@ Future<void> _handleSend([String? overrideText]) async {
             (q) => ActionChip(
               label: Text(q, style: const TextStyle(fontSize: 11)),
               backgroundColor: Colors.white,
-              side: BorderSide(color: _green500.withOpacity(.5)),
+              side: BorderSide(color: _green500.withValues(alpha: .5)),
               labelStyle: TextStyle(color: _green700),
-              onPressed: () => _handleSend(q),
+              onPressed: _loading ? null : () => _handleSend(q),
             ),
           ),
         ],
@@ -440,7 +440,7 @@ Future<void> _handleSend([String? overrideText]) async {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(.05),
+              color: Colors.black.withValues(alpha: .05),
               blurRadius: 8,
               offset: const Offset(0, -2))
         ],

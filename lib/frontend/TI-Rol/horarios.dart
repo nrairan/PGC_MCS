@@ -1,18 +1,22 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mcs/backend/api_config.dart';
+import 'package:mcs/frontend/formularios/formulario_horario.dart';
 
 // ─────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────
 
-const List<String> kDiasOrden = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'];
+// SAB solo contiene núcleos CAI (ver DIAS_REGULARES en la API).
+const List<String> kDiasOrden = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
 const Map<String, String> kDiasLabel = {
   'LUN': 'Lunes',
   'MAR': 'Martes',
   'MIE': 'Miércoles',
   'JUE': 'Jueves',
   'VIE': 'Viernes',
+  'SAB': 'Sábado',
 };
 const List<String> kSemestres = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -27,6 +31,7 @@ class BloqueHorarioApi {
   final String gestor;
   final int gestorId;
   final String? salon;
+  final int? salonId;
   final String horaInicio;
   final String horaFin;
 
@@ -37,6 +42,7 @@ class BloqueHorarioApi {
     required this.gestor,
     required this.gestorId,
     this.salon,
+    this.salonId,
     required this.horaInicio,
     required this.horaFin,
   });
@@ -49,6 +55,7 @@ class BloqueHorarioApi {
       gestor:       json['gestor'] as String,
       gestorId:     json['gestor_id'] as int,
       salon:        json['salon'] as String?,
+      salonId:      json['salon_id'] as int?,
       horaInicio:   json['hora_inicio'] as String,
       horaFin:      json['hora_fin'] as String,
     );
@@ -63,18 +70,16 @@ class BloqueHorarioApi {
 // ─────────────────────────────────────────────
 
 class HorarioVistaService {
-  // ── Ajusta igual que en crearHorario.dart ──
-  // Emulador Android:  'http://10.0.2.2:8000/api'
-  // Dispositivo físico: 'http://192.168.X.X:8000/api'
-  // Web / iOS Sim:     'http://localhost:8000/api'
-  static const String _baseUrl = 'http://127.0.0.1:8000/api';
+  // La URL base se centraliza en lib/backend/api_config.dart (kBaseUrl).
+  static const String _baseUrl = kBaseUrl;
 
   final String? authToken;
   const HorarioVistaService({this.authToken});
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Token $authToken',
+        // La API usa JWT (simplejwt): el esquema es Bearer, no Token.
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
       };
 
   Future<Map<String, List<BloqueHorarioApi>>> fetchHorario(
@@ -176,6 +181,28 @@ class _HorariosScreenState extends State<HorariosScreen>
           'Horarios',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Crear horario',
+            onPressed: () async {
+              final creado = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HorarioForm(authToken: widget.authToken),
+                ),
+              );
+              if (creado == true) {
+                _cargar();
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar',
+            onPressed: _cargar,
+          ),
+        ],
 
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(96),
@@ -356,12 +383,42 @@ class _HorariosScreenState extends State<HorariosScreen>
             controller: _tabController,
             children: kDiasOrden.map((dia) {
               final bloques = _horario[dia] ?? [];
-              return _VistaDia(dia: dia, bloques: bloques);
+              return _VistaDia(
+                dia: dia,
+                bloques: bloques,
+                onEditar: (b) => _editarBloque(b, dia),
+              );
             }).toList(),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _editarBloque(BloqueHorarioApi b, String dia) async {
+    final actualizado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HorarioForm(
+          authToken: widget.authToken,
+          horarioParaEditar: {
+            'id': b.id,
+            'asignatura': b.asignaturaId,
+            'asignatura_id': b.asignaturaId,
+            'gestor': b.gestorId,
+            'gestor_id': b.gestorId,
+            'salon': b.salonId ?? b.salon,
+            'dia': dia,
+            'hora_inicio': b.horaInicio,
+            'hora_fin': b.horaFin,
+            'semestre': _semestreSeleccionado,
+          },
+        ),
+      ),
+    );
+    if (actualizado == true) {
+      _cargar();
+    }
   }
 }
 
@@ -372,8 +429,13 @@ class _HorariosScreenState extends State<HorariosScreen>
 class _VistaDia extends StatelessWidget {
   final String dia;
   final List<BloqueHorarioApi> bloques;
+  final ValueChanged<BloqueHorarioApi> onEditar;
 
-  const _VistaDia({required this.dia, required this.bloques});
+  const _VistaDia({
+    required this.dia,
+    required this.bloques,
+    required this.onEditar,
+  });
 
   static const List<Color> kColores = [
     Color(0xFF1565C0),
@@ -414,7 +476,11 @@ class _VistaDia extends StatelessWidget {
       itemBuilder: (_, i) {
         final b = bloques[i];
         final color = kColores[b.asignaturaId % kColores.length];
-        return _TarjetaBloque(bloque: b, color: color);
+        return _TarjetaBloque(
+          bloque: b,
+          color: color,
+          onEditar: () => onEditar(b),
+        );
       },
     );
   }
@@ -427,8 +493,13 @@ class _VistaDia extends StatelessWidget {
 class _TarjetaBloque extends StatelessWidget {
   final BloqueHorarioApi bloque;
   final Color color;
+  final VoidCallback onEditar;
 
-  const _TarjetaBloque({required this.bloque, required this.color});
+  const _TarjetaBloque({
+    required this.bloque,
+    required this.color,
+    required this.onEditar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -440,7 +511,7 @@ class _TarjetaBloque extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -465,7 +536,7 @@ class _TarjetaBloque extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   vertical: 14, horizontal: 8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.06),
+                color: color.withValues(alpha: 0.06),
                 border: Border(
                     right: BorderSide(color: Colors.grey.shade100)),
               ),
@@ -487,7 +558,7 @@ class _TarjetaBloque extends StatelessWidget {
                     bloque.horaFinCorta,
                     style: TextStyle(
                         fontSize: 13,
-                        color: color.withOpacity(0.8)),
+                        color: color.withValues(alpha: 0.8)),
                   ),
                 ],
               ),
@@ -524,6 +595,11 @@ class _TarjetaBloque extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.black54),
+              tooltip: 'Editar horario',
+              onPressed: onEditar,
             ),
           ],
         ),
@@ -594,7 +670,7 @@ class _PantallaSinHorario extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Crea el horario desde "Crear Horario" y guárdalo para verlo aquí.',
+              'Usa el botón + para crear el primer horario.',
               style: TextStyle(
                   fontSize: 13, color: Colors.grey.shade600),
               textAlign: TextAlign.center,

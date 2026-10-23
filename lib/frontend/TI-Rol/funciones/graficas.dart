@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/widgets/lateral_ti.dart';
+import 'package:mcs/frontend/widgets/graficos/graficos_ti.dart';
 
 class graficasScreen extends StatelessWidget {
   const graficasScreen({super.key});
@@ -11,18 +12,37 @@ class graficasScreen extends StatelessWidget {
         title: const Text('Gráficas'),
       ),
       body: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          const MenuLateral(),
-
-          Expanded(child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.group, size: 80, color: Colors.grey),
-                const SizedBox(height: 20),
-                Text("Aqui se mostrará los registros", style: TextStyle(fontSize: 18, color: Colors.grey)),
-              ],
-            )))
+          const LateralTi(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ListView(
+                children: const [
+                  Text(
+                    'Gráficas del Sistema',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: GraficoUsuariosPorRol()),
+                      SizedBox(width: 16),
+                      Expanded(child: GraficoSalonesPorEdificio()),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  GraficoActividadSemanal(),
+                  SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
