@@ -282,6 +282,9 @@ class ApiException implements Exception {
         }
       }
     } catch (_) {}
+    if (statusCode == 401) {
+      mensaje = 'Tu sesión no está iniciada o expiró. Inicia sesión de nuevo.';
+    }
     return ApiException(mensaje,
         statusCode: statusCode, errores: errores, dependencias: dependencias);
   }
@@ -300,7 +303,14 @@ class HorarioHttpClient {
 
   const HorarioHttpClient({this.authToken});
 
-  Map<String, String> get _headers {
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
+      };
+
+  /// Cabeceras de las operaciones genéricas: usa `authToken` o, si no hay,
+  /// el token de la sesión (`SesionApi`). Los métodos anteriores no cambian.
+  Map<String, String> get _headersSesion {
     final token = authToken ?? SesionApi.token;
     return {
       'Content-Type': 'application/json',
@@ -657,12 +667,49 @@ class HorarioHttpClient {
         : uri.replace(queryParameters: filtros);
   }
 
-  Future<http.Response> _enviar(Future<http.Response> Function() peticion) async {
-    final http.Response r;
+  Future<http.Response> _ejecutar(
+      Future<http.Response> Function() peticion) async {
     try {
-      r = await peticion().timeout(const Duration(seconds: 15));
+      return await peticion().timeout(const Duration(seconds: 15));
     } catch (e) {
       throw ApiException.conexion(_mensajeDeErrorConexion(e));
+    }
+  }
+
+  /// Renueva el token de acceso con `POST /api/token/refresh/`.
+  Future<bool> _renovarToken() async {
+    final refresh = SesionApi.refresh;
+    if (refresh == null) return false;
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$kBaseUrl/token/refresh/'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh': refresh}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (r.statusCode == 200) {
+        final d = jsonDecode(utf8.decode(r.bodyBytes));
+        if (d is Map && d['access'] != null) {
+          SesionApi.token = d['access'].toString();
+          if (d['refresh'] != null) SesionApi.refresh = d['refresh'].toString();
+          return true;
+        }
+      }
+      SesionApi.limpiar();
+    } catch (_) {
+      // Sin conexión: se conserva la sesión y se informa el 401 original.
+    }
+    return false;
+  }
+
+  Future<http.Response> _enviar(
+      Future<http.Response> Function() peticion) async {
+    var r = await _ejecutar(peticion);
+    // Token vencido: se renueva una vez y se repite la solicitud
+    // (la cabecera se vuelve a construir dentro de `peticion`).
+    if (r.statusCode == 401 && authToken == null && await _renovarToken()) {
+      r = await _ejecutar(peticion);
     }
     if (r.statusCode >= 200 && r.statusCode < 300) return r;
     throw ApiException.desdeRespuesta(
@@ -676,7 +723,7 @@ class HorarioHttpClient {
   Future<List<Map<String, dynamic>>> listar(String ruta,
       {Map<String, String>? filtros}) async {
     final r = await _enviar(
-        () => http.get(_uriRecurso(ruta, null, filtros), headers: _headers));
+        () => http.get(_uriRecurso(ruta, null, filtros), headers: _headersSesion));
     final decoded = jsonDecode(utf8.decode(r.bodyBytes));
     final data = decoded is List
         ? decoded
@@ -690,7 +737,7 @@ class HorarioHttpClient {
   Future<Map<String, dynamic>> crear(
       String ruta, Map<String, dynamic> datos) async {
     final r = await _enviar(() => http.post(_uriRecurso(ruta),
-        headers: _headers, body: jsonEncode(datos)));
+        headers: _headersSesion, body: jsonEncode(datos)));
     return Map<String, dynamic>.from(
         jsonDecode(utf8.decode(r.bodyBytes)) as Map);
   }
@@ -699,7 +746,7 @@ class HorarioHttpClient {
   Future<Map<String, dynamic>> actualizar(
       String ruta, Object id, Map<String, dynamic> datos) async {
     final r = await _enviar(() => http.patch(_uriRecurso(ruta, id),
-        headers: _headers, body: jsonEncode(datos)));
+        headers: _headersSesion, body: jsonEncode(datos)));
     return Map<String, dynamic>.from(
         jsonDecode(utf8.decode(r.bodyBytes)) as Map);
   }
@@ -709,7 +756,7 @@ class HorarioHttpClient {
   /// Si el servidor bloquea la eliminación (409) la [ApiException] trae
   /// `dependencias` con los registros asociados.
   Future<void> eliminar(String ruta, Object id) async {
-    await _enviar(() => http.delete(_uriRecurso(ruta, id), headers: _headers));
+    await _enviar(() => http.delete(_uriRecurso(ruta, id), headers: _headersSesion));
   }
 
   String _mensajeDeErrorConexion(Object e) {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ti.dart';
 import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
-import 'package:mcs/frontend/formularios/formulario_usuario.dart';
+import 'package:mcs/frontend/TI-Rol/usuarios/usuarios_admin_screen.dart';
 import 'package:mcs/frontend/formularios/formulario_salon.dart';
 import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
 import 'package:mcs/frontend/formularios/formulario_programa.dart';
@@ -51,7 +51,7 @@ class LateralTi extends StatelessWidget {
             context,
             Icons.person_add,
             'Usuarios',
-            const UsuarioForm(),
+            const UsuariosAdminScreen(),
           ),
           _buildButton(
             context,

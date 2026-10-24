@@ -5,6 +5,7 @@ import 'dart:convert';
 // Importa tus pantallas
 import 'package:mcs/frontend/barraLateral/api.dart'; // GC
 import 'package:mcs/frontend/TI-Rol/ti.dart';  // TI
+import 'package:mcs/backend/api_config.dart';
 
 class Login extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -21,6 +22,13 @@ class _LoginState extends State<Login> {
 
   bool loading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // La pantalla de login se muestra al iniciar y al cerrar sesión.
+    SesionApi.limpiar();
+  }
+
   Future<void> login() async {
     setState(() => loading = false);
 
@@ -36,6 +44,10 @@ class _LoginState extends State<Login> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         String token = data['access'];
+        // Sesión para las operaciones CRUD del rol TI (el token de acceso
+        // dura pocos minutos; el cliente HTTP lo renueva con `refresh`).
+        SesionApi.token = token;
+        SesionApi.refresh = data['refresh']?.toString();
 
         // 🔥 SEGUNDA PETICIÓN
         final userResponse = await http.get(
