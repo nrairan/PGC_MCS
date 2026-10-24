@@ -83,7 +83,7 @@ class _UsuarioFormState extends State<UsuarioForm> {
                         value!.isEmpty ? 'Este campo es obligatorio' : null,
               ),
               DropdownButtonFormField<String>(
-                value: _rol,
+                initialValue: _rol,
                 decoration: const InputDecoration(labelText: 'Rol'),
                 items: const [
                   DropdownMenuItem(value: 'CO', child: Text('Coordinador')),

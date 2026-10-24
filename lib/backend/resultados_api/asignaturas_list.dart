@@ -89,8 +89,7 @@ class _AsignaturasListPageState extends State<AsignaturasListPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Créditos: $creditos'),
-                          Text('Programa ID: $programa'),
-                          Text('Gestores: $gestoresText'),
+                          //Text('Programa ID: $programa'),
                         ],
                       ),
                     ),

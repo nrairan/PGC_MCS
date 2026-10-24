@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:mcs/frontend/widgets/menu_lateral.dart';
+import 'package:mcs/frontend/widgets/lateral_ti.dart';
 
 class SalonForm extends StatefulWidget {
   const SalonForm({super.key});
@@ -17,6 +17,7 @@ class _SalonFormState extends State<SalonForm> {
   final TextEditingController _codigoController = TextEditingController();
   final TextEditingController _capacidadController = TextEditingController();
   final TextEditingController _edificioController = TextEditingController();
+  String _tipo = 'AULA'; // 'AULA' (convencional) o 'COMP' (sala de cómputo)
 
   final String apiUrl = 'http://127.0.0.1:8000/api/salones/';
 
@@ -30,6 +31,7 @@ class _SalonFormState extends State<SalonForm> {
             'codigo': _codigoController.text,
             'capacidad': int.parse(_capacidadController.text),
             'edificio': _edificioController.text,
+            'tipo': _tipo,
           }),
         );
 
@@ -38,6 +40,7 @@ class _SalonFormState extends State<SalonForm> {
             const SnackBar(content: Text('Salón creado exitosamente')),
           );
           _formKey.currentState!.reset();
+          setState(() => _tipo = 'AULA');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -110,7 +113,7 @@ class _SalonFormState extends State<SalonForm> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const MenuLateral(),
+          const LateralTi(),
 
           Expanded(
             child: Padding(
@@ -153,6 +156,16 @@ class _SalonFormState extends State<SalonForm> {
                               value == null || value.isEmpty
                                   ? 'Este campo es obligatorio'
                                   : null,
+                    ),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey('tipo-$_tipo'),
+                      initialValue: _tipo,
+                      decoration: const InputDecoration(labelText: 'Tipo de salón'),
+                      items: const [
+                        DropdownMenuItem(value: 'AULA', child: Text('Aula convencional')),
+                        DropdownMenuItem(value: 'COMP', child: Text('Sala de cómputo')),
+                      ],
+                      onChanged: (v) => setState(() => _tipo = v ?? 'AULA'),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(

@@ -55,7 +55,7 @@ class _UsuariosListPageState extends State<UsuariosListPage> {
                 itemBuilder: (context, index) {
                   final usuario = usuarios[index];
                   return ListTile(
-                    title: Text(usuario['nombre'] ?? 'Sin nombre'),
+                    title: Text(usuario['username'] ?? 'Sin usuario'),
                     subtitle: Text('Email: ${usuario['email'] ?? 'Sin email'}'),
                   );
                 },
