@@ -20,3 +20,15 @@
 
 /// URL base de la API Django. Incluye el prefijo `/api` pero SIN barra final.
 const String kBaseUrl = 'http://127.0.0.1:8000/api';
+
+
+/// Sesión de la API: guarda el token JWT para que el cliente HTTP lo adjunte
+/// automáticamente cuando no se le pasa un `authToken` explícito.
+///
+/// El login debe asignar `SesionApi.token = data['access']` tras autenticarse.
+class SesionApi {
+  SesionApi._();
+
+  /// Token de acceso (JWT) del usuario autenticado, o null si no hay sesión.
+  static String? token;
+}

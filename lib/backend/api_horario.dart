@@ -225,6 +225,72 @@ class ResultadoGuardado {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ERRORES DE LA API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Error de una operación genérica del cliente HTTP.
+class ApiException implements Exception {
+  /// Mensaje legible para mostrar al usuario.
+  final String mensaje;
+
+  /// Código HTTP, o null si no se llegó a obtener respuesta.
+  final int? statusCode;
+
+  /// true si el fallo fue de conexión (servidor caído, sin red, tiempo agotado).
+  final bool esConexion;
+
+  /// Errores por campo devueltos por la API (400), p. ej. {'email': 'Ya existe…'}.
+  final Map<String, String> errores;
+
+  /// Registros asociados que bloquean una eliminación (409), si la API los envía.
+  final Map<String, dynamic>? dependencias;
+
+  const ApiException(
+    this.mensaje, {
+    this.statusCode,
+    this.esConexion = false,
+    this.errores = const {},
+    this.dependencias,
+  });
+
+  factory ApiException.conexion(String mensaje) =>
+      ApiException(mensaje, esConexion: true);
+
+  factory ApiException.desdeRespuesta(
+      int statusCode, String body, String mensajePorDefecto) {
+    String mensaje = mensajePorDefecto;
+    final errores = <String, String>{};
+    Map<String, dynamic>? dependencias;
+    try {
+      final d = jsonDecode(body);
+      if (d is Map) {
+        if (d['dependencias'] is Map) {
+          dependencias = Map<String, dynamic>.from(d['dependencias'] as Map);
+        }
+        final general = d['error'] ?? d['detail'];
+        if (general != null) {
+          mensaje = general.toString();
+        } else {
+          for (final e in d.entries) {
+            final v = e.value;
+            errores[e.key.toString()] =
+                v is List ? v.map((x) => x.toString()).join(' ') : v.toString();
+          }
+          if (errores.isNotEmpty) {
+            mensaje = errores.values.join('\n');
+          }
+        }
+      }
+    } catch (_) {}
+    return ApiException(mensaje,
+        statusCode: statusCode, errores: errores, dependencias: dependencias);
+  }
+
+  @override
+  String toString() => mensaje;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CLIENTE HTTP PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -234,10 +300,13 @@ class HorarioHttpClient {
 
   const HorarioHttpClient({this.authToken});
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+  Map<String, String> get _headers {
+    final token = authToken ?? SesionApi.token;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   List<ConflictoHorario> _parsearConflictos(String body) {
     try {
@@ -573,6 +642,74 @@ class HorarioHttpClient {
         statusCode: -1,
       );
     }
+  }
+
+  // ── Operaciones genéricas (recursos administrativos) ─────────────────────
+  //
+  // `ruta` es el recurso relativo a la URL base, sin barras (ej. 'salones').
+  // Todos los errores se lanzan como [ApiException].
+
+  Uri _uriRecurso(String ruta, [Object? id, Map<String, String>? filtros]) {
+    final base = '$kBaseUrl/$ruta/${id != null ? '$id/' : ''}';
+    final uri = Uri.parse(base);
+    return (filtros == null || filtros.isEmpty)
+        ? uri
+        : uri.replace(queryParameters: filtros);
+  }
+
+  Future<http.Response> _enviar(Future<http.Response> Function() peticion) async {
+    final http.Response r;
+    try {
+      r = await peticion().timeout(const Duration(seconds: 15));
+    } catch (e) {
+      throw ApiException.conexion(_mensajeDeErrorConexion(e));
+    }
+    if (r.statusCode >= 200 && r.statusCode < 300) return r;
+    throw ApiException.desdeRespuesta(
+      r.statusCode,
+      utf8.decode(r.bodyBytes),
+      _mensajeDeEstado(r.statusCode),
+    );
+  }
+
+  /// GET /api/{ruta}/  (acepta respuesta como lista o paginada con `results`).
+  Future<List<Map<String, dynamic>>> listar(String ruta,
+      {Map<String, String>? filtros}) async {
+    final r = await _enviar(
+        () => http.get(_uriRecurso(ruta, null, filtros), headers: _headers));
+    final decoded = jsonDecode(utf8.decode(r.bodyBytes));
+    final data = decoded is List
+        ? decoded
+        : (decoded is Map && decoded['results'] is List
+            ? decoded['results'] as List
+            : const []);
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// POST /api/{ruta}/
+  Future<Map<String, dynamic>> crear(
+      String ruta, Map<String, dynamic> datos) async {
+    final r = await _enviar(() => http.post(_uriRecurso(ruta),
+        headers: _headers, body: jsonEncode(datos)));
+    return Map<String, dynamic>.from(
+        jsonDecode(utf8.decode(r.bodyBytes)) as Map);
+  }
+
+  /// PATCH /api/{ruta}/{id}/  (solo se envían los campos indicados).
+  Future<Map<String, dynamic>> actualizar(
+      String ruta, Object id, Map<String, dynamic> datos) async {
+    final r = await _enviar(() => http.patch(_uriRecurso(ruta, id),
+        headers: _headers, body: jsonEncode(datos)));
+    return Map<String, dynamic>.from(
+        jsonDecode(utf8.decode(r.bodyBytes)) as Map);
+  }
+
+  /// DELETE /api/{ruta}/{id}/
+  ///
+  /// Si el servidor bloquea la eliminación (409) la [ApiException] trae
+  /// `dependencias` con los registros asociados.
+  Future<void> eliminar(String ruta, Object id) async {
+    await _enviar(() => http.delete(_uriRecurso(ruta, id), headers: _headers));
   }
 
   String _mensajeDeErrorConexion(Object e) {
