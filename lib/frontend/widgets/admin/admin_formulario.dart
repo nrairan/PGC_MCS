@@ -277,6 +277,7 @@ class AdminSelector<T> extends StatelessWidget {
   final ValueChanged<T?>? onChanged;
   final bool obligatorio;
   final String? hint;
+  final String? ayuda;
   final IconData? icono;
 
   const AdminSelector({
@@ -287,6 +288,7 @@ class AdminSelector<T> extends StatelessWidget {
     required this.onChanged,
     this.obligatorio = false,
     this.hint,
+    this.ayuda,
     this.icono,
   });
 
@@ -303,6 +305,7 @@ class AdminSelector<T> extends StatelessWidget {
         etiqueta,
         obligatorio: obligatorio,
         hint: hint,
+        ayuda: ayuda,
         icono: icono,
       ),
       items: [
@@ -314,6 +317,105 @@ class AdminSelector<T> extends StatelessWidget {
       ],
       onChanged: onChanged,
       validator: (v) => obligatorio && v == null ? 'Selecciona una opción' : null,
+    );
+  }
+}
+
+/// Selector de varias opciones con casillas (relaciones muchos a muchos,
+/// p. ej. los gestores de un núcleo temático).
+class AdminMultiSelector<T> extends StatelessWidget {
+  final String etiqueta;
+  final List<AdminOpcion<T>> opciones;
+  final Set<T> seleccion;
+  final ValueChanged<Set<T>>? onChanged;
+
+  /// Texto mostrado cuando no hay opciones disponibles.
+  final String mensajeVacio;
+
+  const AdminMultiSelector({
+    super.key,
+    required this.etiqueta,
+    required this.opciones,
+    required this.seleccion,
+    required this.onChanged,
+    this.mensajeVacio = 'No hay opciones disponibles.',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: adminDecoracion(
+        etiqueta,
+        ayuda: '${seleccion.length} seleccionado(s)',
+      ),
+      child: opciones.isEmpty
+          ? Text(
+              mensajeVacio,
+              style: TextStyle(
+                fontSize: 13,
+                color: AdminEstilos.textoSecundario(context),
+              ),
+            )
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 190),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final o in opciones)
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: AdminEstilos.verde,
+                      title: Text(o.etiqueta, overflow: TextOverflow.ellipsis),
+                      value: seleccion.contains(o.valor),
+                      onChanged: onChanged == null
+                          ? null
+                          : (marcado) {
+                              final nueva = Set<T>.of(seleccion);
+                              if (marcado == true) {
+                                nueva.add(o.valor);
+                              } else {
+                                nueva.remove(o.valor);
+                              }
+                              onChanged!(nueva);
+                            },
+                    ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+/// Interruptor (sí/no) con el mismo borde redondeado de los demás campos.
+class AdminInterruptor extends StatelessWidget {
+  final String titulo;
+  final String? subtitulo;
+  final bool valor;
+  final ValueChanged<bool>? onChanged;
+
+  const AdminInterruptor({
+    super.key,
+    required this.titulo,
+    required this.valor,
+    required this.onChanged,
+    this.subtitulo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: SwitchListTile(
+        title: Text(titulo),
+        subtitle: subtitulo == null ? null : Text(subtitulo!),
+        value: valor,
+        onChanged: onChanged,
+      ),
     );
   }
 }
