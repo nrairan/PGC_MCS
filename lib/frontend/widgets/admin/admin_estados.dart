@@ -6,6 +6,17 @@ import 'package:mcs/frontend/widgets/admin/admin_estilos.dart';
 String mensajeDeError(Object error) =>
     error is ApiException ? error.mensaje : 'Ocurrió un error inesperado.';
 
+/// Mensaje de un [ApiException] para mostrar en un formulario. Si la API
+/// devolvió errores por campo, antepone la etiqueta legible de cada campo
+/// (`etiquetas`: clave de la API -> nombre en pantalla).
+String mensajeDeApi(ApiException e, Map<String, String> etiquetas) {
+  if (e.errores.isEmpty) return e.mensaje;
+  return e.errores.entries.map((x) {
+    final etiqueta = etiquetas[x.key];
+    return etiqueta == null ? x.value : '$etiqueta: ${x.value}';
+  }).join('\n');
+}
+
 /// Muestra un aviso breve (SnackBar). `error: true` lo pinta en rojo.
 void mostrarMensaje(BuildContext context, String mensaje,
     {bool error = false}) {

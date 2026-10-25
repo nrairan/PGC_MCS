@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ti.dart';
 import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
 import 'package:mcs/frontend/TI-Rol/usuarios/usuarios_admin_screen.dart';
-import 'package:mcs/frontend/formularios/formulario_salon.dart';
-import 'package:mcs/frontend/formularios/formulario_asignatura.dart';
-import 'package:mcs/frontend/formularios/formulario_programa.dart';
+import 'package:mcs/frontend/TI-Rol/academico/nucleos_admin_screen.dart';
+import 'package:mcs/frontend/TI-Rol/academico/programas_admin_screen.dart';
+import 'package:mcs/frontend/TI-Rol/academico/salones_admin_screen.dart';
 import 'package:mcs/frontend/login/login.dart';
 
 class LateralTi extends StatelessWidget {
@@ -57,19 +57,19 @@ class LateralTi extends StatelessWidget {
             context,
             Icons.meeting_room,
             'Salones',
-            const SalonForm(),
+            const SalonesAdminScreen(),
           ),
           _buildButton(
             context,
             Icons.school,
-            'Nuevo Programa',
-            const ProgramaForm(),
+            'Programas',
+            const ProgramasAdminScreen(),
           ),
           _buildButton(
             context,
             Icons.book,
-            'Nuevo Nucleo tematico',
-            const AsignaturaForm(),
+            'Núcleos temáticos',
+            const NucleosAdminScreen(),
           ),
           _buildButton(
             context,
