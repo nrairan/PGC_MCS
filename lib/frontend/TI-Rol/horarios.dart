@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:mcs/backend/api_config.dart';
 import 'package:mcs/backend/api_horario.dart'
-    show HorarioHttpClient;
+    show ApiException, HorarioHttpClient, mensajeErrorEliminarHorario;
 import 'package:mcs/frontend/formularios/formulario_horario.dart';
-import 'package:mcs/frontend/widgets/admin/admin_widgets.dart' show AdminError;
+import 'package:mcs/frontend/widgets/admin/admin_widgets.dart'
+    show AdminError, AdminEstilos, mostrarMensaje;
+import 'package:mcs/frontend/widgets/dialogo_eliminar_horario.dart';
 import 'package:mcs/frontend/widgets/programa_coordinador_banner.dart';
 
 // ─────────────────────────────────────────────
@@ -90,6 +92,12 @@ class HorarioVistaService {
             ..sort((a, b) => a.horaInicio.compareTo(b.horaInicio)),
         ));
   }
+
+  /// DELETE /api/horarios/{id}/ con el cliente HTTP único de la app. `id` es el
+  /// identificador del horario (el del bloque), no el de la asignatura ni el
+  /// del salón. Lanza [ApiException] si la API rechaza la operación.
+  Future<void> eliminarHorario(int id) =>
+      HorarioHttpClient(authToken: authToken).eliminarHorario(id);
 }
 
 // ─────────────────────────────────────────────
@@ -99,7 +107,10 @@ class HorarioVistaService {
 class HorariosScreen extends StatefulWidget {
   final String? authToken;
 
-  const HorariosScreen({super.key, this.authToken});
+  /// Servicio de datos; por defecto el que usa la app. Se puede sustituir en pruebas.
+  final HorarioVistaService? servicio;
+
+  const HorariosScreen({super.key, this.authToken, this.servicio});
 
   @override
   State<HorariosScreen> createState() => _HorariosScreenState();
@@ -109,6 +120,12 @@ class _HorariosScreenState extends State<HorariosScreen>
     with SingleTickerProviderStateMixin {
   late final HorarioVistaService _api;
   late final TabController _tabController;
+
+  /// Ids de horarios con una solicitud de eliminación en curso.
+  final Set<int> _eliminando = {};
+
+  /// true mientras hay un diálogo de eliminación abierto (evita abrir dos).
+  bool _dialogoAbierto = false;
 
   String _semestreSeleccionado = kSemestres.first;
   Map<String, List<BloqueHorarioApi>> _horario = {};
@@ -121,7 +138,7 @@ class _HorariosScreenState extends State<HorariosScreen>
   @override
   void initState() {
     super.initState();
-    _api = HorarioVistaService(authToken: widget.authToken);
+    _api = widget.servicio ?? HorarioVistaService(authToken: widget.authToken);
     _tabController =
         TabController(length: kDiasOrden.length, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _cargar());
@@ -133,12 +150,16 @@ class _HorariosScreenState extends State<HorariosScreen>
     super.dispose();
   }
 
-  Future<void> _cargar() async {
+  /// Con `silencioso` no oculta la lista actual mientras recarga ni la
+  /// reemplaza por un error si la recarga falla.
+  Future<void> _cargar({bool silencioso = false}) async {
     if (!mounted) return;
-    setState(() {
-      _cargando = true;
-      _error = null;
-    });
+    if (!silencioso) {
+      setState(() {
+        _cargando = true;
+        _error = null;
+      });
+    }
     try {
       final data = await _api.fetchHorario(_semestreSeleccionado);
       if (!mounted) return;
@@ -148,6 +169,7 @@ class _HorariosScreenState extends State<HorariosScreen>
       });
     } catch (e) {
       if (!mounted) return;
+      if (silencioso) return;
       setState(() {
         _error = e;
         _cargando = false;
@@ -364,12 +386,60 @@ class _HorariosScreenState extends State<HorariosScreen>
                 dia: dia,
                 bloques: bloques,
                 onEditar: (b) => _editarBloque(b, dia),
+                // La acción solo se ofrece a CO y TI; la API vuelve a verificar
+                // el permiso y que el horario sea del programa del coordinador.
+                onEliminar: SesionApi.puedeEliminarHorarios
+                    ? (b) => _eliminarBloque(b, dia)
+                    : null,
+                eliminando: _eliminando,
               );
             }).toList(),
           ),
         ),
       ],
     );
+  }
+
+  /// Confirma, elimina en la API y, solo si ésta lo confirma, quita la tarjeta.
+  Future<void> _eliminarBloque(BloqueHorarioApi b, String dia) async {
+    if (_dialogoAbierto || _eliminando.contains(b.id)) return;
+    _dialogoAbierto = true;
+    try {
+      final eliminado = await mostrarDialogoEliminarHorario(
+        context,
+        asignatura: b.asignatura,
+        dia: kDiasLabel[dia] ?? dia,
+        horaInicio: b.horaInicioCorta,
+        horaFin: b.horaFinCorta,
+        salon: b.salon,
+        gestor: b.gestor,
+        onEliminar: () async {
+          if (mounted) setState(() => _eliminando.add(b.id));
+          try {
+            await _api.eliminarHorario(b.id);
+            return null;
+          } catch (e) {
+            // Un 404 significa que ya no existe: se refresca la lista de fondo.
+            if (mounted && e is ApiException && e.statusCode == 404) {
+              _cargar(silencioso: true);
+            }
+            return mensajeErrorEliminarHorario(e);
+          } finally {
+            if (mounted) setState(() => _eliminando.remove(b.id));
+          }
+        },
+      );
+      if (eliminado != true || !mounted) return;
+      // La API confirmó: se quita la tarjeta y se sincroniza con el servidor.
+      setState(() {
+        _horario = _horario.map((d, lista) =>
+            MapEntry(d, lista.where((x) => x.id != b.id).toList()));
+      });
+      mostrarMensaje(context, 'Horario eliminado');
+      await _cargar(silencioso: true);
+    } finally {
+      _dialogoAbierto = false;
+    }
   }
 
   Future<void> _editarBloque(BloqueHorarioApi b, String dia) async {
@@ -408,10 +478,16 @@ class _VistaDia extends StatelessWidget {
   final List<BloqueHorarioApi> bloques;
   final ValueChanged<BloqueHorarioApi> onEditar;
 
+  /// null = el rol actual no puede eliminar horarios (no se muestra la acción).
+  final ValueChanged<BloqueHorarioApi>? onEliminar;
+  final Set<int> eliminando;
+
   const _VistaDia({
     required this.dia,
     required this.bloques,
     required this.onEditar,
+    this.onEliminar,
+    this.eliminando = const {},
   });
 
   static const List<Color> kColores = [
@@ -457,6 +533,8 @@ class _VistaDia extends StatelessWidget {
           bloque: b,
           color: color,
           onEditar: () => onEditar(b),
+          onEliminar: onEliminar == null ? null : () => onEliminar!(b),
+          eliminando: eliminando.contains(b.id),
         );
       },
     );
@@ -472,10 +550,16 @@ class _TarjetaBloque extends StatelessWidget {
   final Color color;
   final VoidCallback onEditar;
 
+  /// null = no se muestra el botón de eliminar.
+  final VoidCallback? onEliminar;
+  final bool eliminando;
+
   const _TarjetaBloque({
     required this.bloque,
     required this.color,
     required this.onEditar,
+    this.onEliminar,
+    this.eliminando = false,
   });
 
   @override
@@ -578,6 +662,24 @@ class _TarjetaBloque extends StatelessWidget {
               tooltip: 'Editar horario',
               onPressed: onEditar,
             ),
+            if (onEliminar != null)
+              eliminando
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14),
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          size: 18, color: AdminEstilos.peligro),
+                      tooltip: 'Eliminar horario',
+                      onPressed: onEliminar,
+                    ),
           ],
         ),
       ),

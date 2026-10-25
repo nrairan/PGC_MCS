@@ -293,6 +293,25 @@ class ApiException implements Exception {
   String toString() => mensaje;
 }
 
+/// Texto para mostrar cuando falla la eliminación de un horario. Distingue
+/// conexión, sesión, permisos, horario inexistente y error del servidor, sin
+/// presentar nunca el fallo como una eliminación exitosa.
+String mensajeErrorEliminarHorario(Object error) {
+  if (error is! ApiException) {
+    return 'No se pudo eliminar el horario. Intenta de nuevo.';
+  }
+  if (error.esConexion) return error.mensaje;
+  switch (error.statusCode) {
+    case 404:
+      return 'El horario ya no existe o no pertenece a tu programa.';
+    case 500:
+      return 'Error interno del servidor. Intenta más tarde.';
+    default:
+      // 400, 401 y 403: se conserva el motivo que devuelve la API.
+      return error.mensaje;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CLIENTE HTTP PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -789,6 +808,11 @@ class HorarioHttpClient {
   Future<void> eliminar(String ruta, Object id) async {
     await _enviar(() => http.delete(_uriRecurso(ruta, id), headers: _headersSesion));
   }
+
+  /// DELETE /api/horarios/{id}/ — `id` es el identificador del horario (el
+  /// `id` que devuelve `por_semestre`), no el de la asignatura ni el del salón.
+  /// Lanza [ApiException]; el servidor decide si el usuario puede eliminarlo.
+  Future<void> eliminarHorario(int id) => eliminar('horarios', id);
 
   String _mensajeDeErrorConexion(Object e) {
     final msg = e.toString().toLowerCase();
