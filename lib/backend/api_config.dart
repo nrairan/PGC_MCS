@@ -45,6 +45,11 @@ class SesionApi {
   /// true si el usuario autenticado es coordinador de programa.
   static bool get esCoordinador => rol == 'CO';
 
+  /// true si la interfaz debe ofrecer eliminar horarios: coordinadores y TI,
+  /// los únicos roles a los que la API se lo permite. Es solo presentación:
+  /// el servidor verifica el permiso y el programa en cada solicitud.
+  static bool get puedeEliminarHorarios => rol == 'CO' || rol == 'TI';
+
   /// Descarta la sesión (cierre de sesión o renovación fallida).
   static void limpiar() {
     token = null;
