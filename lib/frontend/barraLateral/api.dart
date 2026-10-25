@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:mcs/backend/resultados_api/usuarios_list.dart';
-import 'package:mcs/backend/resultados_api/asignaturas_list.dart';
-import 'package:mcs/backend/resultados_api/programas_list.dart';
+import 'package:mcs/frontend/CO-Rol/nucleos_coordinador_screen.dart';
+import 'package:mcs/frontend/CO-Rol/programa_coordinador_screen.dart';
 import 'package:mcs/backend/servicios/metricas_service.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/salonesList.dart';
 import 'package:mcs/frontend/widgets/menu_lateral.dart';
@@ -168,7 +168,7 @@ class _ApiPageState extends State<ApiPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const AsignaturasListPage(),
+                                  builder: (context) => const NucleosCoordinadorScreen(),
                                 ),
                               );
                             },
@@ -195,12 +195,12 @@ class _ApiPageState extends State<ApiPage> {
                         children: [
                           ElevatedButton.icon(
                             icon: const Icon(Icons.school),
-                            label: const Text('Ver Programas'),
+                            label: const Text('Mi programa'),
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const ProgramasListPage(),
+                                  builder: (context) => const ProgramaCoordinadorScreen(),
                                 ),
                               );
                             },

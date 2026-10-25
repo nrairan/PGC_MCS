@@ -37,9 +37,18 @@ class SesionApi {
   /// Token de renovación del usuario autenticado, o null si no hay sesión.
   static String? refresh;
 
+  /// Rol del usuario autenticado ('CO', 'TI', ...), tal como lo informa la API
+  /// al iniciar sesión. Solo sirve para adaptar la interfaz: los permisos y el
+  /// alcance de los datos los decide siempre el servidor.
+  static String? rol;
+
+  /// true si el usuario autenticado es coordinador de programa.
+  static bool get esCoordinador => rol == 'CO';
+
   /// Descarta la sesión (cierre de sesión o renovación fallida).
   static void limpiar() {
     token = null;
     refresh = null;
+    rol = null;
   }
 }

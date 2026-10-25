@@ -192,12 +192,25 @@ class AdminError extends StatelessWidget {
     final conexion = e is ApiException && e.esConexion;
     final codigo = e is ApiException ? e.statusCode : null;
 
+    final sinSesion = codigo == 401;
+    final sinPermiso = codigo == 403;
+
     return _EstadoBase(
-      icono: conexion ? Icons.wifi_off : Icons.error_outline,
+      icono: conexion
+          ? Icons.wifi_off
+          : sinSesion
+              ? Icons.lock_outline
+              : sinPermiso
+                  ? Icons.block
+                  : Icons.error_outline,
       color: AdminEstilos.peligro,
       titulo: conexion
           ? 'Sin conexión con el servidor'
-          : 'La API devolvió un error${codigo != null ? ' ($codigo)' : ''}',
+          : sinSesion
+              ? 'Sesión no autorizada'
+              : sinPermiso
+                  ? 'No tienes permiso para ver esta información'
+                  : 'La API devolvió un error${codigo != null ? ' ($codigo)' : ''}',
       mensaje: mensajeDeError(error),
       acciones: [
         if (onReintentar != null)

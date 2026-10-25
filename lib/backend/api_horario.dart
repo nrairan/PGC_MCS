@@ -297,16 +297,61 @@ class ApiException implements Exception {
 // CLIENTE HTTP PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Renueva el token de acceso de la sesión con `POST /api/token/refresh/`.
+///
+/// Devuelve true si obtuvo un token nuevo. Si el refresh es inválido o venció,
+/// cierra la sesión local; sin conexión conserva la sesión.
+Future<bool> renovarSesionApi() async {
+  final refresh = SesionApi.refresh;
+  if (refresh == null) return false;
+  try {
+    final r = await http
+        .post(
+          Uri.parse('$kBaseUrl/token/refresh/'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh': refresh}),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (r.statusCode == 200) {
+      final d = jsonDecode(utf8.decode(r.bodyBytes));
+      if (d is Map && d['access'] != null) {
+        SesionApi.token = d['access'].toString();
+        if (d['refresh'] != null) SesionApi.refresh = d['refresh'].toString();
+        return true;
+      }
+    }
+    SesionApi.limpiar();
+  } catch (_) {
+    // Sin conexión: se conserva la sesión y se informa el 401 original.
+  }
+  return false;
+}
+
 /// Cliente HTTP para todos los endpoints de horarios.
 class HorarioHttpClient {
   final String? authToken;
 
   const HorarioHttpClient({this.authToken});
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+  Map<String, String> get _headers {
+    // Token explícito o, si no hay, el de la sesión iniciada.
+    final token = authToken ?? SesionApi.token;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// Ejecuta la petición y, si el token de acceso venció (401), lo renueva una vez
+  /// y repite la solicitud (la cabecera se reconstruye dentro de `peticion`).
+  Future<http.Response> _conRenovacion(
+      Future<http.Response> Function() peticion) async {
+    var r = await peticion();
+    if (r.statusCode == 401 && authToken == null && await renovarSesionApi()) {
+      r = await peticion();
+    }
+    return r;
+  }
 
   /// Cabeceras de las operaciones genéricas: usa `authToken` o, si no hay,
   /// el token de la sesión (`SesionApi`). Los métodos anteriores no cambian.
@@ -359,6 +404,17 @@ class HorarioHttpClient {
     return [ConflictoHorario(mensaje: body.isNotEmpty ? body : 'Error desconocido al validar horario')];
   }
 
+  /// Conflictos a mostrar cuando la API responde con un estado no previsto.
+  /// En 403 se muestra el motivo que envía el servidor (p. ej. "tu usuario no
+  /// tiene un programa asignado" o "la asignatura no pertenece a tu programa").
+  List<ConflictoHorario> _conflictosDeEstado(http.Response r) {
+    if (r.statusCode == 403) {
+      final c = _parsearConflictos(utf8.decode(r.bodyBytes));
+      if (c.isNotEmpty) return c;
+    }
+    return [ConflictoHorario(mensaje: _mensajeDeEstado(r.statusCode))];
+  }
+
   String _mensajeDeEstado(int statusCode) {
     switch (statusCode) {
       case 400:
@@ -384,8 +440,8 @@ class HorarioHttpClient {
     try {
       final uri =
           Uri.parse('$kBaseUrl/horarios/por_semestre/?semestre=$semestre');
-      final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      final response = await _conRenovacion(() =>
+          http.get(uri, headers: _headers).timeout(const Duration(seconds: 15)));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> raw =
@@ -397,13 +453,15 @@ class HorarioHttpClient {
                   .toList(),
             ));
       }
-      throw Exception(
-          '${_mensajeDeEstado(response.statusCode)}\n${response.body}');
+      // ApiException conserva el código HTTP (401, 403...) para que la pantalla
+      // distinga sesión vencida, falta de permiso y errores del servidor.
+      throw ApiException.desdeRespuesta(response.statusCode,
+          utf8.decode(response.bodyBytes), _mensajeDeEstado(response.statusCode));
     } on Exception {
       rethrow;
     } catch (e, st) {
       developer.log('fetchHorarioPorSemestre error', name: 'HorarioHttpClient', error: e, stackTrace: st);
-      throw Exception(_mensajeDeErrorConexion(e));
+      throw ApiException.conexion(_mensajeDeErrorConexion(e));
     }
   }
 
@@ -425,9 +483,9 @@ class HorarioHttpClient {
 
   Future<List<Map<String, dynamic>>> _getList(String url) async {
     try {
-      final response = await http
+      final response = await _conRenovacion(() => http
           .get(Uri.parse(url), headers: _headers)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 15)));
       if (response.statusCode == 200) {
         final body = utf8.decode(response.bodyBytes);
         dynamic parsed = jsonDecode(body);
@@ -441,11 +499,12 @@ class HorarioHttpClient {
         }
         return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
-      throw Exception(_mensajeDeEstado(response.statusCode));
+      throw ApiException.desdeRespuesta(response.statusCode,
+          utf8.decode(response.bodyBytes), _mensajeDeEstado(response.statusCode));
     } on Exception {
       rethrow;
     } catch (e) {
-      throw Exception(_mensajeDeErrorConexion(e));
+      throw ApiException.conexion(_mensajeDeErrorConexion(e));
     }
   }
 
@@ -475,9 +534,9 @@ class HorarioHttpClient {
         if (horarioExcluidoId != null) 'horario_id': horarioExcluidoId,
       });
 
-      final response = await http
+      final response = await _conRenovacion(() => http
           .post(uri, headers: _headers, body: body)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 15)));
 
       developer.log(
         'validarBloque → ${response.statusCode}: ${response.body}',
@@ -519,7 +578,7 @@ class HorarioHttpClient {
       }
       return ResultadoValidacion(
         valido: false,
-        conflictos: [ConflictoHorario(mensaje: _mensajeDeEstado(response.statusCode))],
+        conflictos: _conflictosDeEstado(response),
       );
     } on Exception catch (e) {
       developer.log('validarBloque: error de conexión', name: 'HorarioHttpClient', error: e);
@@ -559,9 +618,9 @@ class HorarioHttpClient {
         name: 'HorarioHttpClient',
       );
 
-      final response = await http
+      final response = await _conRenovacion(() => http
           .post(uri, headers: _headers, body: jsonEncode(bodyMap))
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 15)));
 
       developer.log(
         'guardarBloque ← ${response.statusCode}: ${response.body}',
@@ -586,9 +645,7 @@ class HorarioHttpClient {
       }
 
       return ResultadoGuardado(
-        conflictos: [
-          ConflictoHorario(mensaje: _mensajeDeEstado(response.statusCode))
-        ],
+        conflictos: _conflictosDeEstado(response),
         statusCode: response.statusCode,
       );
     } on Exception catch (e) {
@@ -622,9 +679,9 @@ class HorarioHttpClient {
         'semestre': semestre,
       };
 
-      final response = await http
+      final response = await _conRenovacion(() => http
           .put(uri, headers: _headers, body: jsonEncode(bodyMap))
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 15)));
 
       if (response.statusCode == 200) {
         return ResultadoGuardado(
@@ -641,9 +698,7 @@ class HorarioHttpClient {
         );
       }
       return ResultadoGuardado(
-        conflictos: [
-          ConflictoHorario(mensaje: _mensajeDeEstado(response.statusCode))
-        ],
+        conflictos: _conflictosDeEstado(response),
         statusCode: response.statusCode,
       );
     } on Exception catch (e) {
@@ -677,31 +732,7 @@ class HorarioHttpClient {
   }
 
   /// Renueva el token de acceso con `POST /api/token/refresh/`.
-  Future<bool> _renovarToken() async {
-    final refresh = SesionApi.refresh;
-    if (refresh == null) return false;
-    try {
-      final r = await http
-          .post(
-            Uri.parse('$kBaseUrl/token/refresh/'),
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({'refresh': refresh}),
-          )
-          .timeout(const Duration(seconds: 15));
-      if (r.statusCode == 200) {
-        final d = jsonDecode(utf8.decode(r.bodyBytes));
-        if (d is Map && d['access'] != null) {
-          SesionApi.token = d['access'].toString();
-          if (d['refresh'] != null) SesionApi.refresh = d['refresh'].toString();
-          return true;
-        }
-      }
-      SesionApi.limpiar();
-    } catch (_) {
-      // Sin conexión: se conserva la sesión y se informa el 401 original.
-    }
-    return false;
-  }
+  Future<bool> _renovarToken() => renovarSesionApi();
 
   Future<http.Response> _enviar(
       Future<http.Response> Function() peticion) async {
