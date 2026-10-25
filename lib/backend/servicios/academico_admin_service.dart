@@ -9,6 +9,7 @@ class AcademicoAdminService {
   static const String recursoProgramas = 'programa';
   static const String recursoSalones = 'salones';
   static const String recursoNucleos = 'asignaturas';
+  static const String recursoMatriculas = 'matricula';
   static const String recursoUsuarios = 'usuarios';
 
   final HorarioHttpClient api;
@@ -30,6 +31,9 @@ class AcademicoAdminService {
 
   /// Usuarios con rol Gestor del Conocimiento (los únicos que acepta `gestores`).
   Future<List<UsuarioAdmin>> gestores() => _usuariosPorRol('GC');
+
+  /// Usuarios con rol Estudiante (los únicos que acepta `Matricula.estudiante`).
+  Future<List<UsuarioAdmin>> estudiantes() => _usuariosPorRol('ES');
 
   /// Programas con el nombre de su coordinador resuelto.
   Future<List<ProgramaAdmin>> programas() async {
@@ -78,5 +82,31 @@ class AcademicoAdminService {
       for (final j in datos)
         NucleoAdmin.fromJson(j, programas: programas, gestores: gestoresPorId),
     ]..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+  }
+
+  /// Matrículas con estudiante, asignatura y programa resueltos.
+  Future<List<MatriculaAdmin>> matriculas() async {
+    final r = await Future.wait<Object>([
+      api.listar(recursoMatriculas),
+      estudiantes(),
+      nucleos(),
+    ]);
+    final datos = r[0] as List<Map<String, dynamic>>;
+    final porEstudiante = {
+      for (final u in r[1] as List<UsuarioAdmin>) u.id: u,
+    };
+    final porNucleo = {
+      for (final n in r[2] as List<NucleoAdmin>) n.id: n,
+    };
+    return [
+      for (final j in datos)
+        MatriculaAdmin.fromJson(j,
+            estudiantes: porEstudiante, nucleos: porNucleo),
+    ]..sort((a, b) {
+        final c = (a.estudianteNombre ?? '')
+            .toLowerCase()
+            .compareTo((b.estudianteNombre ?? '').toLowerCase());
+        return c != 0 ? c : a.id.compareTo(b.id);
+      });
   }
 }
