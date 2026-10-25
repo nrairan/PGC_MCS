@@ -158,3 +158,66 @@ class NucleoAdmin {
     ).contains(q);
   }
 }
+
+/// Matrícula (`/api/matricula/`): un estudiante inscrito en una asignatura
+/// (núcleo temático) para un semestre. La API no admite repetir la pareja
+/// estudiante + asignatura ni más de 8 asignaturas por estudiante y semestre.
+class MatriculaAdmin {
+  final int id;
+  final int estudianteId;
+  final int asignaturaId;
+
+  /// Texto libre de hasta 10 caracteres, tal como lo guarda la API.
+  final String semestre;
+
+  /// Datos resueltos con las listas de estudiantes y núcleos (pueden faltar).
+  final String? estudianteNombre;
+  final String? estudianteCorreo;
+  final String? asignaturaNombre;
+  final String? asignaturaCodigo;
+  final String? programaNombre;
+
+  const MatriculaAdmin({
+    required this.id,
+    required this.estudianteId,
+    required this.asignaturaId,
+    required this.semestre,
+    this.estudianteNombre,
+    this.estudianteCorreo,
+    this.asignaturaNombre,
+    this.asignaturaCodigo,
+    this.programaNombre,
+  });
+
+  factory MatriculaAdmin.fromJson(
+    Map<String, dynamic> json, {
+    Map<int, UsuarioAdmin> estudiantes = const {},
+    Map<int, NucleoAdmin> nucleos = const {},
+  }) {
+    final est = _entero(json['estudiante'])!;
+    final asig = _entero(json['asignatura'])!;
+    final u = estudiantes[est];
+    final n = nucleos[asig];
+    return MatriculaAdmin(
+      id: _entero(json['id'])!,
+      estudianteId: est,
+      asignaturaId: asig,
+      semestre: _texto(json['semestre']),
+      estudianteNombre: u?.titulo,
+      estudianteCorreo: (u == null || u.email.isEmpty) ? null : u.email,
+      asignaturaNombre: n?.nombre,
+      asignaturaCodigo: n?.codigo,
+      programaNombre: n?.programaNombre,
+    );
+  }
+
+  bool coincide(String consulta) {
+    final q = UsuarioAdmin.normalizar(consulta.trim());
+    if (q.isEmpty) return true;
+    return UsuarioAdmin.normalizar(
+      '${estudianteNombre ?? ''} ${estudianteCorreo ?? ''} '
+      '${asignaturaNombre ?? ''} ${asignaturaCodigo ?? ''} '
+      '${programaNombre ?? ''} $semestre',
+    ).contains(q);
+  }
+}

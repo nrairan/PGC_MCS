@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ti.dart';
 import 'package:mcs/frontend/pantallas_historial/historial_ti_screen.dart';
 import 'package:mcs/frontend/TI-Rol/usuarios/usuarios_admin_screen.dart';
+import 'package:mcs/frontend/TI-Rol/academico/matriculas_admin_screen.dart';
 import 'package:mcs/frontend/TI-Rol/academico/nucleos_admin_screen.dart';
 import 'package:mcs/frontend/TI-Rol/academico/programas_admin_screen.dart';
 import 'package:mcs/frontend/TI-Rol/academico/salones_admin_screen.dart';
@@ -70,6 +71,12 @@ class LateralTi extends StatelessWidget {
             Icons.book,
             'Núcleos temáticos',
             const NucleosAdminScreen(),
+          ),
+          _buildButton(
+            context,
+            Icons.how_to_reg,
+            'Matrículas',
+            const MatriculasAdminScreen(),
           ),
           _buildButton(
             context,
