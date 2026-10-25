@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:mcs/frontend/TI-Rol/ayudas/historial.dart';
+import 'package:mcs/frontend/CO-Rol/nucleos_coordinador_screen.dart';
+import 'package:mcs/frontend/CO-Rol/programa_coordinador_screen.dart';
 import 'package:mcs/frontend/TI-Rol/horarios.dart';
 import 'package:mcs/frontend/barraLateral/api.dart';
 import 'package:mcs/frontend/login/login.dart';
@@ -39,6 +41,18 @@ class MenuLateral extends StatelessWidget {
           const SizedBox(height: 10),
           const Text("Uso rápido"),
           _buildButton(context, Icons.home, 'General', const ApiPage()),
+          _buildButton(
+            context,
+            Icons.school_outlined,
+            'Mi programa',
+            const ProgramaCoordinadorScreen(),
+          ),
+          _buildButton(
+            context,
+            Icons.book_outlined,
+            'Núcleos temáticos',
+            const NucleosCoordinadorScreen(),
+          ),
           _buildButton(
             context,
             Icons.calendar_month,

@@ -65,6 +65,7 @@ class _LoginState extends State<Login> {
         );
 
         String rol = user['rol'];
+        SesionApi.rol = rol;
 
       if (rol == 'CO') {
         Navigator.pushReplacement(

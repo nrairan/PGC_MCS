@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:mcs/backend/api_config.dart';
+import 'package:mcs/backend/api_horario.dart' show renovarSesionApi;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELOS PARA GRÁFICOS Y MÉTRICAS
@@ -138,16 +139,33 @@ class MetricasService {
   MetricasService({this.authToken, http.Client? client})
       : _client = client ?? http.Client();
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+  Map<String, String> get _headers {
+    // Token explícito o, si no hay, el de la sesión iniciada.
+    final token = authToken ?? SesionApi.token;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// GET autenticado: si el token venció (401) lo renueva una vez y repite.
+  Future<http.Response> _get(Uri uri, int segundos) async {
+    var res = await _client
+        .get(uri, headers: _headers)
+        .timeout(Duration(seconds: segundos));
+    if (res.statusCode == 401 && authToken == null && await renovarSesionApi()) {
+      res = await _client
+          .get(uri, headers: _headers)
+          .timeout(Duration(seconds: segundos));
+    }
+    return res;
+  }
 
   /// Obtiene la distribución de horarios programados por día (Lunes a Sábado)
   Future<List<HorarioDiaMetrica>> fetchHorariosPorDia({String semestre = '1'}) async {
     try {
       final uri = Uri.parse('$kBaseUrl/horarios/por_semestre/?semestre=$semestre');
-      final res = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+      final res = await _get(uri, 10);
 
       if (res.statusCode == 200) {
         final Map<String, dynamic> raw = jsonDecode(utf8.decode(res.bodyBytes));
@@ -183,7 +201,7 @@ class MetricasService {
   Future<EstadoHorariosMetrica> fetchEstadoHorarios() async {
     try {
       final uri = Uri.parse('$kBaseUrl/horarios/');
-      final res = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+      final res = await _get(uri, 10);
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));
@@ -212,7 +230,7 @@ class MetricasService {
   Future<List<RolUsuarioMetrica>> fetchUsuariosPorRol() async {
     try {
       final uri = Uri.parse('$kBaseUrl/usuarios/');
-      final res = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+      final res = await _get(uri, 10);
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));
@@ -259,7 +277,7 @@ class MetricasService {
   Future<List<SalonEdificioMetrica>> fetchSalonesPorEdificio() async {
     try {
       final uri = Uri.parse('$kBaseUrl/salones/');
-      final res = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+      final res = await _get(uri, 10);
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));
@@ -298,7 +316,7 @@ class MetricasService {
     try {
       final endpoint = rol == 'TI' ? 'logs' : 'historial';
       final uri = Uri.parse('$kBaseUrl/$endpoint/?limit=$limit');
-      final res = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 8));
+      final res = await _get(uri, 8);
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));
@@ -418,7 +436,7 @@ class MetricasService {
     try {
       final endpoint = rol == 'TI' ? 'logs' : 'historial';
       final uri = Uri.parse('$kBaseUrl/$endpoint/?page=$page&page_size=$pageSize');
-      final res = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+      final res = await _get(uri, 10);
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));

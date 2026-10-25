@@ -1,8 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:mcs/backend/api_config.dart';
+import 'package:mcs/backend/api_horario.dart'
+    show HorarioHttpClient;
 import 'package:mcs/frontend/formularios/formulario_horario.dart';
+import 'package:mcs/frontend/widgets/admin/admin_widgets.dart' show AdminError;
+import 'package:mcs/frontend/widgets/programa_coordinador_banner.dart';
 
 // ─────────────────────────────────────────────
 // CONSTANTES
@@ -70,39 +72,23 @@ class BloqueHorarioApi {
 // ─────────────────────────────────────────────
 
 class HorarioVistaService {
-  // La URL base se centraliza en lib/backend/api_config.dart (kBaseUrl).
-  static const String _baseUrl = kBaseUrl;
-
   final String? authToken;
   const HorarioVistaService({this.authToken});
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        // La API usa JWT (simplejwt): el esquema es Bearer, no Token.
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
-
+  /// Carga los horarios del semestre con el cliente HTTP único de la app (envía el
+  /// token de la sesión y lo renueva si venció). Lanza [ApiException] con el código
+  /// HTTP para que la pantalla distinga sesión vencida, permisos y conexión.
+  /// El servidor decide qué clases devuelve: para un coordinador, solo las de su
+  /// programa.
   Future<Map<String, List<BloqueHorarioApi>>> fetchHorario(
       String semestre) async {
-    final uri =
-        Uri.parse('$_baseUrl/horarios/por_semestre/?semestre=$semestre');
-    final response = await http.get(uri, headers: _headers);
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> raw =
-          jsonDecode(utf8.decode(response.bodyBytes));
-
-      return raw.map((dia, bloques) => MapEntry(
-            dia,
-            (bloques as List)
-                .map((b) =>
-                    BloqueHorarioApi.fromJson(b as Map<String, dynamic>))
-                .toList()
-              ..sort((a, b) => a.horaInicio.compareTo(b.horaInicio)),
-          ));
-    }
-    throw Exception(
-        'Error al cargar horario (${response.statusCode}): ${response.body}');
+    final raw = await HorarioHttpClient(authToken: authToken)
+        .fetchHorarioPorSemestre(semestre);
+    return raw.map((dia, bloques) => MapEntry(
+          dia,
+          bloques.map(BloqueHorarioApi.fromJson).toList()
+            ..sort((a, b) => a.horaInicio.compareTo(b.horaInicio)),
+        ));
   }
 }
 
@@ -127,7 +113,10 @@ class _HorariosScreenState extends State<HorariosScreen>
   String _semestreSeleccionado = kSemestres.first;
   Map<String, List<BloqueHorarioApi>> _horario = {};
   bool _cargando = false;
-  String? _error;
+  Object? _error;
+
+  /// true cuando la API indica que el coordinador no tiene programa asignado.
+  bool _sinPrograma = false;
 
   @override
   void initState() {
@@ -160,7 +149,7 @@ class _HorariosScreenState extends State<HorariosScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e;
         _cargando = false;
       });
     }
@@ -291,7 +280,19 @@ class _HorariosScreenState extends State<HorariosScreen>
           ),
         ),
       ),
-      body: _buildCuerpo(),
+      body: Column(
+        children: [
+          // Solo el coordinador: el programa lo informa la API, no se elige aquí.
+          if (SesionApi.esCoordinador)
+            ProgramaCoordinadorBanner(
+              onCargado: (p) {
+                final sin = p.isEmpty;
+                if (sin != _sinPrograma) setState(() => _sinPrograma = sin);
+              },
+            ),
+          Expanded(child: _buildCuerpo()),
+        ],
+      ),
     );
   }
 
@@ -311,41 +312,17 @@ class _HorariosScreenState extends State<HorariosScreen>
     }
 
     if (_error != null) {
-      return Center(
+      return AdminError(error: _error!, onReintentar: _cargar);
+    }
+
+    if (_sinPrograma) {
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  color: Color(0xFFC62828), size: 48),
-              const SizedBox(height: 12),
-              const Text(
-                'No se pudo cargar el horario',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    //color: Color(0xFF1A6433),
-                    fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(_error!,
-                  style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 12),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: _cargar,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Reintentar'),
-                style: ElevatedButton.styleFrom(
-                  //backgroundColor: const Color(0xFF1A6433),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ],
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'Tu usuario no tiene un programa asignado, por lo que no hay '
+            'horarios para mostrar. Solicita a TI que te asigne uno.',
+            textAlign: TextAlign.center,
           ),
         ),
       );
